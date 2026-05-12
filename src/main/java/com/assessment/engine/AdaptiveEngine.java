@@ -92,13 +92,10 @@ public class AdaptiveEngine {
         r.put("isScaffolding", false);
         r.put("questionId", q.getId());
         r.put("questionText", q.getQuestionText());
-        r.put("questionType", q.getQuestionType().name());
         r.put("optionA", q.getOptionA());
         r.put("optionB", q.getOptionB());
         r.put("optionC", q.getOptionC());
         r.put("optionD", q.getOptionD());
-//        r.put("hasImage", q.getHasImage());
-//        r.put("imageUrl", q.getImageUrl());
         r.put("topic", state.getCurrentTopic());
         r.put("skillTag", state.getCurrentSkillTag().name());
         r.put("difficulty", state.getCurrentDifficulty());
@@ -224,13 +221,18 @@ public class AdaptiveEngine {
     }
 
     private boolean evaluateAnswer(Question question, String studentAnswer) {
-        if (studentAnswer == null || studentAnswer.isBlank()) return false;
-        if (question.getQuestionType() == Question.QuestionType.MCQ) {
-            return studentAnswer.trim().equalsIgnoreCase(
-                question.getCorrectAnswer() != null ? question.getCorrectAnswer().trim() : "");
+        if (studentAnswer == null || studentAnswer.isBlank()) {
+            return false;
         }
-        String expected = question.getCorrectValue() != null ? question.getCorrectValue().trim().toLowerCase() : "";
-        return expected.equals(studentAnswer.trim().toLowerCase());
+
+        String correctAnswer = question.getCorrectAnswer();
+
+        if (correctAnswer == null) {
+            return false;
+        }
+
+        return studentAnswer.trim()
+                .equalsIgnoreCase(correctAnswer.trim());
     }
 
     @Transactional

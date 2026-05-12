@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 import java.util.Map;
 
@@ -30,21 +31,30 @@ class AssessmentController {
     @PostMapping("/start")
     public ResponseEntity<?> start(@AuthenticationPrincipal UserDetails userDetails,
                                    @RequestBody Map<String, Object> body) {
+
         Long studentId = getId(userDetails);
         List<String> topics = (List<String>) body.get("topics");
+
         if (topics == null || topics.isEmpty())
             return ResponseEntity.badRequest().body(Map.of("error", "Topics required"));
+
         return ResponseEntity.ok(assessmentService.startAssessment(studentId, topics));
     }
 
     @PostMapping("/submit")
     public ResponseEntity<?> submit(@RequestBody Map<String, Object> body) {
-        Long sessionId  = Long.valueOf(body.get("sessionId").toString());
+
+        Long sessionId = Long.valueOf(body.get("sessionId").toString());
         Long questionId = Long.valueOf(body.get("questionId").toString());
-        String answer   = (String) body.get("answer");
+        String answer = (String) body.get("answer");
+
         Integer timeTaken = body.get("timeTaken") != null
-            ? Integer.valueOf(body.get("timeTaken").toString()) : null;
-        return ResponseEntity.ok(assessmentService.submitAnswer(sessionId, questionId, answer, timeTaken));
+                ? Integer.valueOf(body.get("timeTaken").toString())
+                : null;
+
+        return ResponseEntity.ok(
+                assessmentService.submitAnswer(sessionId, questionId, answer, timeTaken)
+        );
     }
 
     @GetMapping("/report/latest")
@@ -59,8 +69,8 @@ class AssessmentController {
 
     private Long getId(UserDetails u) {
         return userRepository.findByEmail(u.getUsername())
-            .map(User::getId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+                .map(User::getId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
     }
 }
 
@@ -80,15 +90,21 @@ class StudentController {
 
     @GetMapping("/me")
     public ResponseEntity<?> myProfile(@AuthenticationPrincipal UserDetails userDetails) {
+
         Long id = userRepository.findByEmail(userDetails.getUsername())
-            .map(User::getId).orElseThrow();
+                .map(User::getId)
+                .orElseThrow();
+
         return ResponseEntity.ok(assessmentService.getStudentProfile(id));
     }
 
     @GetMapping("/me/report")
     public ResponseEntity<?> myReport(@AuthenticationPrincipal UserDetails userDetails) {
+
         Long id = userRepository.findByEmail(userDetails.getUsername())
-            .map(User::getId).orElseThrow();
+                .map(User::getId)
+                .orElseThrow();
+
         return ResponseEntity.ok(assessmentService.getLatestReport(id));
     }
 
@@ -101,10 +117,17 @@ class StudentController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllStudents() {
-        List<User> students = userRepository.findAll().stream()
-            .filter(u -> u.getRole() == User.Role.STUDENT).toList();
-        return ResponseEntity.ok(students.stream()
-            .map(s -> assessmentService.getStudentProfile(s.getId())).toList());
+
+        List<User> students = userRepository.findAll()
+                .stream()
+                .filter(u -> u.getRole() == User.Role.STUDENT)
+                .toList();
+
+        return ResponseEntity.ok(
+                students.stream()
+                        .map(s -> assessmentService.getStudentProfile(s.getId()))
+                        .toList()
+        );
     }
 }
 
@@ -130,7 +153,8 @@ class QuestionController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Question> getById(@PathVariable Long id) {
         return questionRepository.findById(id)
-            .map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
@@ -138,44 +162,46 @@ class QuestionController {
     public ResponseEntity<Question> create(@RequestBody Question q) {
         q.setId(null);
         q.setTimesUsed(0);
-        q.setIsActive(true);
         return ResponseEntity.ok(questionRepository.save(q));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Question> update(@PathVariable Long id, @RequestBody Question updated) {
+
         return questionRepository.findById(id).map(q -> {
+
             q.setQuestionText(updated.getQuestionText());
-            q.setQuestionType(updated.getQuestionType());
             q.setOptionA(updated.getOptionA());
             q.setOptionB(updated.getOptionB());
             q.setOptionC(updated.getOptionC());
             q.setOptionD(updated.getOptionD());
             q.setCorrectAnswer(updated.getCorrectAnswer());
-            q.setCorrectValue(updated.getCorrectValue());
             q.setTopic(updated.getTopic());
-            q.setSubtopic(updated.getSubtopic());
             q.setSkillTag(updated.getSkillTag());
             q.setDifficulty(updated.getDifficulty());
-            q.setIsActive(updated.getIsActive());
+
             return ResponseEntity.ok(questionRepository.save(q));
+
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> delete(@PathVariable Long id) {
-        return questionRepository.findById(id).map(q -> {
-            q.setIsActive(false);
-            questionRepository.save(q);
-            return ResponseEntity.ok(Map.of("message", "Deactivated"));
-        }).orElse(ResponseEntity.notFound().build());
+
+        if (!questionRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        questionRepository.deleteById(id);
+
+        return ResponseEntity.ok(Map.of("message", "Deleted"));
     }
 
     @GetMapping("/topic/{topic}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Question>> byTopic(@PathVariable String topic) {
-        return ResponseEntity.ok(questionRepository.findByTopicAndIsActiveTrue(topic));
+        return ResponseEntity.ok(questionRepository.findByTopic(topic));
     }
 }
