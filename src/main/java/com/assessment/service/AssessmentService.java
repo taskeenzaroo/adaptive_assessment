@@ -40,29 +40,52 @@ public class AssessmentService {
 
     @Transactional
     public Map<String, Object> startAssessment(Long studentId, List<String> topics) {
+
         User student = userRepository.findById(studentId)
-            .orElseThrow(() -> new RuntimeException("Student not found"));
+                .orElseThrow(() -> new RuntimeException("Student not found"));
 
-        sessionRepository.findByStudentIdAndStatus(studentId, AssessmentSession.SessionStatus.IN_PROGRESS)
-            .ifPresent(s -> {
-                s.setStatus(AssessmentSession.SessionStatus.ABANDONED);
-                s.setEndedAt(LocalDateTime.now());
-                sessionRepository.save(s);
-                adaptiveEngine.removeSession(s.getId());
-            });
+        // STEP 1: Check if active session exists
+        Optional<AssessmentSession> existingSession =
+                sessionRepository.findByStudentIdAndStatus(
+                        studentId,
+                        AssessmentSession.SessionStatus.IN_PROGRESS
+                );
 
+        // STEP 2: If exists → mark it ABANDONED safely
+        if (existingSession.isPresent()) {
+            AssessmentSession oldSession = existingSession.get();
+            oldSession.setStatus(AssessmentSession.SessionStatus.ABANDONED);
+            oldSession.setEndedAt(LocalDateTime.now());
+
+            sessionRepository.saveAndFlush(oldSession); // IMPORTANT: flush to DB
+
+            adaptiveEngine.removeSession(oldSession.getId());
+        }
+
+        // STEP 3: Create new session
         AssessmentSession session = new AssessmentSession();
         session.setStudent(student);
         session.setCurrentTopic(topics.get(0));
         session.setCurrentSkillTag(Question.SkillTag.concept);
         session.setCurrentDifficulty(3);
-        try { session.setTopicsAssessed(objectMapper.writeValueAsString(topics)); }
-        catch (Exception e) { session.setTopicsAssessed("[]"); }
+        session.setStatus(AssessmentSession.SessionStatus.IN_PROGRESS);
+        session.setStartedAt(LocalDateTime.now());
+
+        try {
+            session.setTopicsAssessed(objectMapper.writeValueAsString(topics));
+        } catch (Exception e) {
+            session.setTopicsAssessed("[]");
+        }
+
         session = sessionRepository.save(session);
 
-        SessionState state = adaptiveEngine.startSession(session.getId(), studentId, topics);
+        // STEP 4: Start adaptive engine state
+        adaptiveEngine.startSession(session.getId(), studentId, topics);
+
+        // STEP 5: Get first question
         Map<String, Object> nextQ = adaptiveEngine.getNextQuestion(session.getId());
         nextQ.put("sessionId", session.getId());
+
         return nextQ;
     }
 
