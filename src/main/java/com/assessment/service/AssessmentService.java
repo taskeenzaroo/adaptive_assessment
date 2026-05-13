@@ -54,10 +54,9 @@ public class AssessmentService {
         // STEP 2: If exists → mark it ABANDONED safely
         if (existingSession.isPresent()) {
             AssessmentSession oldSession = existingSession.get();
-            oldSession.setStatus(AssessmentSession.SessionStatus.ABANDONED);
             oldSession.setEndedAt(LocalDateTime.now());
 
-            sessionRepository.saveAndFlush(oldSession); // IMPORTANT: flush to DB
+            sessionRepository.saveAndFlush(oldSession);
 
             adaptiveEngine.removeSession(oldSession.getId());
         }
