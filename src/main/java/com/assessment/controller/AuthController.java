@@ -4,6 +4,7 @@ import com.assessment.config.JwtUtil;
 import com.assessment.entity.User;
 import com.assessment.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,6 +30,7 @@ public class AuthController {
         this.jwtUtil = jwtUtil;
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
         String email = body.get("email");
@@ -39,7 +41,7 @@ public class AuthController {
         user.setName(body.get("name"));
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(body.get("password")));
-        user.setRole(User.Role.valueOf(body.getOrDefault("role", "STUDENT").toUpperCase()));
+        user.setRole(User.Role.STUDENT);
         userRepository.save(user);
         return ResponseEntity.ok(Map.of("message", "Registered successfully", "email", email));
     }

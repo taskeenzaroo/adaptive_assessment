@@ -3,20 +3,26 @@ package com.assessment.engine;
 import com.assessment.entity.*;
 import com.assessment.repository.*;
 import com.assessment.service.ScaffoldingService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AdaptiveEngine {
 
+    private static final int MAX_QUESTIONS = 5; // change to 3 for quick testing
+
     private final QuestionRepository questionRepository;
     private final ThetaEstimateRepository thetaRepository;
     private final SessionAnswerRepository answerRepository;
     private final ScaffoldingLogRepository scaffoldingLogRepository;
     private final ScaffoldingService scaffoldingService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     private final Map<Long, SessionState> activeSessions = new ConcurrentHashMap<>();
 
     public AdaptiveEngine(QuestionRepository questionRepository,
@@ -41,12 +47,13 @@ public class AdaptiveEngine {
 
         for (String topic : topics) {
             thetaRepository.findByStudentIdAndTopic(studentId, topic)
-                .ifPresent(te -> state.getThetaPerTopic().put(topic, te.getCurrentTheta()));
+                    .ifPresent(te -> state.getThetaPerTopic().put(topic, te.getCurrentTheta()));
             state.getThetaPerTopic().putIfAbsent(topic, 3.0);
         }
 
         double startTheta = state.getThetaPerTopic().get(topics.get(0));
         state.setCurrentDifficulty((int) Math.round(Math.min(5, Math.max(1, startTheta))));
+
         activeSessions.put(sessionId, state);
         return state;
     }
@@ -57,8 +64,8 @@ public class AdaptiveEngine {
         if (state.isScaffoldingActive()) {
             Map<String, Object> r = new HashMap<>();
             r.put("isScaffolding", true);
-            r.put("questionText", state.getCurrentScaffoldedQuestion());
-            r.put("questionType", "SUBJECTIVE");
+            r.put("scaffolding", true);
+            r.put("scaffoldedQuestion", scaffoldFromState(state));
             r.put("originalQuestionId", state.getScaffoldingOriginalQuestionId());
             return r;
         }
@@ -67,11 +74,18 @@ public class AdaptiveEngine {
         if (usedIds.isEmpty()) usedIds.add(-1L);
 
         List<Question> candidates = questionRepository.findAvailableQuestions(
-            state.getCurrentTopic(), state.getCurrentSkillTag(), state.getCurrentDifficulty(), usedIds);
+                state.getCurrentTopic(),
+                state.getCurrentSkillTag(),
+                state.getCurrentDifficulty(),
+                usedIds
+        );
 
         if (candidates.isEmpty()) {
             candidates = questionRepository.findByTopicSkillDifficulty(
-                state.getCurrentTopic(), state.getCurrentSkillTag(), state.getCurrentDifficulty());
+                    state.getCurrentTopic(),
+                    state.getCurrentSkillTag(),
+                    state.getCurrentDifficulty()
+            );
         }
 
         if (candidates.isEmpty()) {
@@ -79,12 +93,11 @@ public class AdaptiveEngine {
         }
 
         if (candidates.isEmpty()) {
-            Map<String, Object> r = new HashMap<>();
-            r.put("noQuestion", true);
-            return r;
+            return Map.of("noQuestion", true);
         }
 
         Question q = candidates.get(0);
+
         state.setCurrentQuestionId(q.getId());
         state.getUsedQuestionIds().add(q.getId());
 
@@ -100,13 +113,17 @@ public class AdaptiveEngine {
         r.put("skillTag", state.getCurrentSkillTag().name());
         r.put("difficulty", state.getCurrentDifficulty());
         r.put("currentTheta", state.getThetaPerTopic().getOrDefault(state.getCurrentTopic(), 3.0));
+
         return r;
     }
 
     @Transactional
-    public Map<String, Object> processAnswer(Long sessionId, Long questionId,
-                                              String studentAnswer, Integer timeTaken,
-                                              AssessmentSession session) {
+    public Map<String, Object> processAnswer(Long sessionId,
+                                             Long questionId,
+                                             String studentAnswer,
+                                             Integer timeTaken,
+                                             AssessmentSession session) {
+
         SessionState state = getState(sessionId);
 
         if (state.isScaffoldingActive()) {
@@ -114,11 +131,20 @@ public class AdaptiveEngine {
         }
 
         Question question = questionRepository.findById(questionId)
-            .orElseThrow(() -> new RuntimeException("Question not found"));
+                .orElseThrow(() -> new RuntimeException("Question not found"));
 
         boolean correct = evaluateAnswer(question, studentAnswer);
+
         saveAnswer(session, question, studentAnswer, correct, false, timeTaken);
-        state.recordAnswer(state.getCurrentTopic(), state.getCurrentSkillTag(), correct, false);
+
+        state.incrementTotalQuestionsAnswered();
+
+        state.recordAnswer(
+                state.getCurrentTopic(),
+                state.getCurrentSkillTag(),
+                correct,
+                false
+        );
 
         Map<String, Object> result = new HashMap<>();
         result.put("wasCorrect", correct);
@@ -127,21 +153,31 @@ public class AdaptiveEngine {
             state.setConsecutiveCorrect(state.getConsecutiveCorrect() + 1);
             state.setConsecutiveWrong(0);
             state.resetScaffolding();
+
             double newTheta = state.updateTheta(true);
             result.put("newTheta", newTheta);
+
             state.advanceToNextSkill();
 
             if (state.allSkillsDone()) {
                 double accuracy = state.getAccuracyForCycle();
-                if (accuracy >= SessionState.ADVANCE_ACCURACY_THRESHOLD && state.getCurrentDifficulty() < 5) {
+
+                if (accuracy >= SessionState.ADVANCE_ACCURACY_THRESHOLD
+                        && state.getCurrentDifficulty() < 5) {
+
                     state.setCurrentDifficulty(state.getCurrentDifficulty() + 1);
                     state.getSkillsDoneThisCycle().clear();
                     state.setCurrentSkillTag(Question.SkillTag.concept);
+
                     result.put("message", "Difficulty increased to " + state.getCurrentDifficulty());
+
                 } else if (state.hasMoreTopics()) {
+
                     state.advanceToNextTopic();
                     result.put("message", "Moving to topic: " + state.getCurrentTopic());
+
                 } else {
+
                     result.put("sessionComplete", true);
                     result.put("message", "Assessment complete");
                     return result;
@@ -149,47 +185,79 @@ public class AdaptiveEngine {
             } else {
                 result.put("message", "Moving to " + state.getCurrentSkillTag().name());
             }
+
         } else {
             state.setConsecutiveWrong(state.getConsecutiveWrong() + 1);
             state.setConsecutiveCorrect(0);
 
-            String scaffoldQ = scaffoldingService.generateScaffold(
-                question.getQuestionText(), question.getTopic(),
-                question.getSkillTag().name(), question.getDifficulty());
+            Map<String, Object> scaffoldQ = scaffoldingService.generateScaffold(
+                    question.getQuestionText(),
+                    question.getTopic(),
+                    question.getSkillTag().name(),
+                    question.getDifficulty(),
+                    1,
+                    null
+            );
 
-            if (scaffoldQ != null && !scaffoldQ.isBlank()) {
-                state.setScaffoldingActive(true);
-                state.setScaffoldingAttempts(1);
-                state.setScaffoldingOriginalQuestionId(question.getId());
-                state.setCurrentScaffoldedQuestion(scaffoldQ);
-                result.put("scaffolding", true);
-                result.put("scaffoldedQuestion", scaffoldQ);
-                result.put("message", "Let us try a simpler version");
-            } else {
-                double newTheta = state.updateTheta(false);
-                result.put("newTheta", newTheta);
-                state.setCurrentDifficulty(Math.max(1, state.getCurrentDifficulty() - 1));
-                state.advanceToNextSkill();
-                result.put("message", "Difficulty decreased to " + state.getCurrentDifficulty());
-            }
+            state.setScaffoldingActive(true);
+            state.setScaffoldingAttempts(1);
+            state.setScaffoldingOriginalQuestionId(question.getId());
+            state.setCurrentScaffoldedQuestion(toJson(scaffoldQ));
+
+            result.put("scaffolding", true);
+            result.put("sessionComplete", false);
+            result.put("scaffoldedQuestion", scaffoldQ);
+            result.put("message", "Let us try a simpler version");
         }
+
+        if (state.getTotalQuestionsAnswered() >= MAX_QUESTIONS) {
+            result.put("sessionComplete", true);
+            result.put("scaffolding", false);
+            result.put("message", "Assessment complete. Maximum question limit reached.");
+            return result;
+        }
+
         return result;
     }
 
     @Transactional
-    private Map<String, Object> processScaffoldAnswer(SessionState state, String studentAnswer,
-                                                       Integer timeTaken, AssessmentSession session) {
-        boolean correct = studentAnswer != null && studentAnswer.trim().length() > 2;
-        state.recordAnswer(state.getCurrentTopic(), state.getCurrentSkillTag(), correct, true);
+    private Map<String, Object> processScaffoldAnswer(SessionState state,
+                                                      String studentAnswer,
+                                                      Integer timeTaken,
+                                                      AssessmentSession session) {
+
+        Map<String, Object> currentScaffold = scaffoldFromState(state);
+
+        String correctAnswer = currentScaffold.get("correctAnswer") != null
+                ? currentScaffold.get("correctAnswer").toString().trim().replace("\"", "").replace("'", "")
+                : "";
+
+        String submittedAnswer = studentAnswer != null
+                ? studentAnswer.trim().replace("\"", "").replace("'", "")
+                : "";
+
+        boolean correct = submittedAnswer.equalsIgnoreCase(correctAnswer);
+
+        state.recordAnswer(
+                state.getCurrentTopic(),
+                state.getCurrentSkillTag(),
+                correct,
+                true
+        );
 
         ScaffoldingLog log = new ScaffoldingLog();
         log.setSession(session);
-        Question origQ = questionRepository.findById(state.getScaffoldingOriginalQuestionId()).orElse(null);
+
+        Question origQ = questionRepository
+                .findById(state.getScaffoldingOriginalQuestionId())
+                .orElse(null);
+
         log.setOriginalQuestion(origQ);
         log.setGeneratedQuestion(state.getCurrentScaffoldedQuestion());
         log.setStudentAnswer(studentAnswer);
         log.setIsCorrect(correct);
         log.setAttemptNumber(state.getScaffoldingAttempts());
+
         scaffoldingLogRepository.save(log);
 
         Map<String, Object> result = new HashMap<>();
@@ -199,24 +267,45 @@ public class AdaptiveEngine {
             state.resetScaffolding();
             state.setCurrentDifficulty(Math.max(1, state.getCurrentDifficulty() - 1));
             state.advanceToNextSkill();
+
+            result.put("scaffolding", false);
+            result.put("sessionComplete", false);
             result.put("message", "Good! Continuing at difficulty " + state.getCurrentDifficulty());
+
         } else if (state.getScaffoldingAttempts() < SessionState.MAX_SCAFFOLDING_ATTEMPTS) {
+
             state.setScaffoldingAttempts(state.getScaffoldingAttempts() + 1);
-            String newScaffold = scaffoldingService.generateScaffold(
-                origQ != null ? origQ.getQuestionText() : "",
-                state.getCurrentTopic(), state.getCurrentSkillTag().name(),
-                Math.max(1, state.getCurrentDifficulty() - 1));
-            state.setCurrentScaffoldedQuestion(newScaffold);
+
+            Map<String, Object> newScaffold = scaffoldingService.generateScaffold(
+                    origQ != null ? origQ.getQuestionText() : "",
+                    state.getCurrentTopic(),
+                    state.getCurrentSkillTag().name(),
+                    Math.max(1, state.getCurrentDifficulty() - 1),
+                    2,
+                    state.getCurrentScaffoldedQuestion()
+            );
+
+            state.setCurrentScaffoldedQuestion(toJson(newScaffold));
+
             result.put("scaffolding", true);
+            result.put("sessionComplete", false);
             result.put("scaffoldedQuestion", newScaffold);
+            result.put("message", "Let us try one more simpler version");
+
         } else {
             double newTheta = state.updateTheta(false);
+
             state.resetScaffolding();
             state.setCurrentDifficulty(Math.max(1, state.getCurrentDifficulty() - 1));
-            state.advanceToNextSkill();
+
             result.put("newTheta", newTheta);
-            result.put("message", "Moving on. Difficulty decreased to " + state.getCurrentDifficulty());
+            result.put("scaffolding", false);
+            result.put("sessionComplete", false);
+            result.put("message", "Difficulty decreased to "
+                    + state.getCurrentDifficulty()
+                    + ". Retrying same skill.");
         }
+
         return result;
     }
 
@@ -231,14 +320,19 @@ public class AdaptiveEngine {
             return false;
         }
 
-        return studentAnswer.trim()
-                .equalsIgnoreCase(correctAnswer.trim());
+        return studentAnswer.trim().equalsIgnoreCase(correctAnswer.trim());
     }
 
     @Transactional
-    private void saveAnswer(AssessmentSession session, Question question,
-                            String studentAnswer, boolean correct, boolean scaffolded, Integer timeTaken) {
+    private void saveAnswer(AssessmentSession session,
+                            Question question,
+                            String studentAnswer,
+                            boolean correct,
+                            boolean scaffolded,
+                            Integer timeTaken) {
+
         SessionAnswer answer = new SessionAnswer();
+
         answer.setSession(session);
         answer.setQuestion(question);
         answer.setTopic(question.getTopic());
@@ -248,7 +342,9 @@ public class AdaptiveEngine {
         answer.setIsCorrect(correct);
         answer.setScaffoldingTriggered(scaffolded);
         answer.setTimeTakenSeconds(timeTaken);
+
         answerRepository.save(answer);
+
         question.setTimesUsed(question.getTimesUsed() + 1);
         questionRepository.save(question);
     }
@@ -257,21 +353,81 @@ public class AdaptiveEngine {
         for (int delta = 1; delta <= 2; delta++) {
             for (int sign : new int[]{-1, 1}) {
                 int altDiff = state.getCurrentDifficulty() + (sign * delta);
+
                 if (altDiff < 1 || altDiff > 5) continue;
+
                 List<Question> result = questionRepository.findAvailableQuestions(
-                    state.getCurrentTopic(), state.getCurrentSkillTag(), altDiff, usedIds);
-                if (!result.isEmpty()) return result;
+                        state.getCurrentTopic(),
+                        state.getCurrentSkillTag(),
+                        altDiff,
+                        usedIds
+                );
+
+                if (!result.isEmpty()) {
+                    return result;
+                }
             }
         }
+
         return Collections.emptyList();
+    }
+
+    private String toJson(Map<String, Object> map) {
+        try {
+            return objectMapper.writeValueAsString(map);
+        } catch (Exception e) {
+            return fallbackJson();
+        }
+    }
+
+    private Map<String, Object> scaffoldFromState(SessionState state) {
+        try {
+            return objectMapper.readValue(
+                    state.getCurrentScaffoldedQuestion(),
+                    new TypeReference<Map<String, Object>>() {}
+            );
+        } catch (Exception e) {
+            return fallbackScaffold();
+        }
+    }
+
+    private String fallbackJson() {
+        try {
+            return objectMapper.writeValueAsString(fallbackScaffold());
+        } catch (Exception e) {
+            return "{}";
+        }
+    }
+
+    private Map<String, Object> fallbackScaffold() {
+        Map<String, Object> fallback = new HashMap<>();
+        fallback.put("questionText", "A pizza is cut into 4 equal slices. What does 1 slice show?");
+        fallback.put("optionA", "A whole pizza");
+        fallback.put("optionB", "A part of a whole");
+        fallback.put("optionC", "Four pizzas");
+        fallback.put("optionD", "No pizza");
+        fallback.put("correctAnswer", "B");
+        fallback.put("correctValue", "A part of a whole");
+        fallback.put("explanation", "A fraction shows equal parts of one whole.");
+        fallback.put("diagnosedMisconception", "Student may not understand that fractions represent equal parts of a whole.");
+        return fallback;
     }
 
     public SessionState getState(Long sessionId) {
         SessionState state = activeSessions.get(sessionId);
-        if (state == null) throw new RuntimeException("Session not found: " + sessionId);
+
+        if (state == null) {
+            throw new RuntimeException("Session not found: " + sessionId);
+        }
+
         return state;
     }
 
-    public void removeSession(Long sessionId) { activeSessions.remove(sessionId); }
-    public boolean sessionExists(Long sessionId) { return activeSessions.containsKey(sessionId); }
+    public void removeSession(Long sessionId) {
+        activeSessions.remove(sessionId);
+    }
+
+    public boolean sessionExists(Long sessionId) {
+        return activeSessions.containsKey(sessionId);
+    }
 }

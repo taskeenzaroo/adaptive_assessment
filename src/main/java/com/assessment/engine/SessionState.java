@@ -25,6 +25,7 @@ public class SessionState {
     private Map<String, Integer> correctCount = new HashMap<>();
     private Map<String, Integer> totalCount = new HashMap<>();
     private Map<String, Integer> scaffoldCount = new HashMap<>();
+    private int totalQuestionsAnswered=0;
 
     public static final double LEARNING_RATE = 0.3;
     public static final double THETA_MIN = 1.0;
@@ -142,4 +143,15 @@ public class SessionState {
     public Map<String, Integer> getCorrectCount() { return correctCount; }
     public Map<String, Integer> getTotalCount() { return totalCount; }
     public Map<String, Integer> getScaffoldCount() { return scaffoldCount; }
+    public int getTotalQuestionsAnswered() {
+        return totalQuestionsAnswered;
+    }
+
+    public void setTotalQuestionsAnswered(int totalQuestionsAnswered) {
+        this.totalQuestionsAnswered = totalQuestionsAnswered;
+    }
+
+    public void incrementTotalQuestionsAnswered() {
+        this.totalQuestionsAnswered++;
+    }
 }
