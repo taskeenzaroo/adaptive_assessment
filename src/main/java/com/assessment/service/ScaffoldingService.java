@@ -34,6 +34,7 @@ public class ScaffoldingService {
     ) {
 
         try {
+
             String prompt = buildPrompt(
                     questionText,
                     topic,
@@ -55,6 +56,7 @@ public class ScaffoldingService {
             body.put("model", model);
             body.put("messages", List.of(message));
             body.put("temperature", 0.3);
+            body.put("max_tokens", 400);
 
             HttpEntity<Map<String, Object>> request =
                     new HttpEntity<>(body, headers);
@@ -97,8 +99,14 @@ public class ScaffoldingService {
             return result;
 
         } catch (Exception e) {
+
             System.out.println("Groq scaffolding failed: " + e.getMessage());
-            return fallbackScaffold(topic, skillTag, scaffoldAttempt);
+
+            return fallbackScaffold(
+                    topic,
+                    skillTag,
+                    scaffoldAttempt
+            );
         }
     }
 
@@ -112,47 +120,74 @@ public class ScaffoldingService {
     ) {
 
         return """
-                You are an AI tutor generating scaffolded diagnostic MCQ questions for children.
-
-                Original question:
-                %s
-
-                Topic:
-                %s
-
-                Skill tag:
-                %s
-
-                Difficulty:
-                %d
-
-                Scaffold attempt:
-                %d
-
-                Previous scaffold:
-                %s
-
-                Your job:
-                - Generate ONE scaffolded MCQ.
-                - Do NOT just make the question easier.
-                - Diagnose WHY the student may be struggling.
-                - Focus on misconception, concept gap, calculation gap, visualization issue, or procedural confusion.
-                - Use child-friendly wording.
-                - Use simple visual or concrete examples when helpful.
-                - Keep options short.
-                - Return JSON only.
-                - Do not include markdown.
-                - Do not include explanation outside JSON.
-
-                If scaffoldAttempt is 1:
-                - Make a simpler diagnostic question on the same core idea.
-
-                If scaffoldAttempt is 2:
-                - Make it much easier.
-                - Check the most foundational understanding.
-
-                Return exactly this JSON format:
-
+                You are an expert adaptive learning tutor for children.
+                
+                Your task is to generate ONE scaffolded diagnostic MCQ question.
+                
+                IMPORTANT GOAL:
+                The purpose is NOT only to make the question easier.
+                The purpose is to diagnose WHY the student is struggling.
+                
+                You must identify whether the student is struggling because of:
+                - concept misunderstanding
+                - procedural confusion
+                - calculation mistake
+                - representation confusion
+                - visualization issue
+                - language misunderstanding
+                
+                You are given:
+                - original question
+                - topic
+                - skill tag
+                - difficulty
+                - scaffold attempt number
+                
+                RULES:
+                
+                1. The scaffold must remain connected to the SAME core concept.
+                
+                2. If scaffoldAttempt = 1:
+                - generate a simpler diagnostic question
+                - isolate the likely misconception
+                - reduce complexity slightly
+                - keep conceptual connection
+                
+                3. If scaffoldAttempt = 2:
+                - make it MUCH easier
+                - test foundational understanding
+                - use concrete/simple examples
+                - reduce cognitive load heavily
+                
+                4. The question MUST be mathematically correct.
+                
+                5. Verify the correct answer carefully before returning.
+                
+                6. All options must be realistic distractors.
+                
+                7. Use child-friendly wording.
+                
+                8. Keep options concise.
+                
+                9. Return ONLY valid JSON.
+                
+                10. DO NOT include markdown.
+                DO NOT include explanation outside JSON.
+                DO NOT write ```json.
+                
+                11. Ensure:
+                - correctAnswer matches the actually correct option
+                - correctValue is mathematically correct
+                - options are internally consistent
+                
+                12. Every JSON field must contain a value.
+                Do not leave empty strings.
+                
+                13. Do not explain your reasoning.
+                Return only final JSON.
+                
+                Return EXACTLY this JSON structure:
+                
                 {
                   "questionText": "...",
                   "optionA": "...",
@@ -165,8 +200,26 @@ public class ScaffoldingService {
                   "diagnosedMisconception": "...",
                   "diagnosticFocus": "...",
                   "suspectedWeakness": "...",
-                  "confidence": "medium"
+                  "confidence": "low"
                 }
+                
+                Original Question:
+                %s
+                
+                Topic:
+                %s
+                
+                Skill Tag:
+                %s
+                
+                Difficulty:
+                %d
+                
+                Scaffold Attempt:
+                %d
+                
+                Previous Scaffold:
+                %s
                 """.formatted(
                 questionText,
                 topic,
@@ -178,6 +231,7 @@ public class ScaffoldingService {
     }
 
     private String cleanJson(String content) {
+
         return content
                 .replace("```json", "")
                 .replace("```", "")
@@ -193,59 +247,103 @@ public class ScaffoldingService {
         Map<String, Object> fallback = new HashMap<>();
 
         if (scaffoldAttempt == 1) {
-            fallback.put("questionText", "Let's try this in a simpler way. What should we understand first in this topic?");
+
+            fallback.put(
+                    "questionText",
+                    "Let's try this in a simpler way. What should we understand first in this topic?"
+            );
+
             fallback.put("optionA", "The meaning of the concept");
             fallback.put("optionB", "Only the final answer");
             fallback.put("optionC", "Guessing the option");
             fallback.put("optionD", "Skipping the steps");
+
             fallback.put("correctAnswer", "A");
-            fallback.put("correctValue", "The meaning of the concept");
-            fallback.put("explanation", "Understanding the concept first helps solve the full question.");
-            fallback.put("diagnosedMisconception", "Student may not understand the base concept.");
-            fallback.put("diagnosticFocus", "Concept understanding");
-            fallback.put("suspectedWeakness", "concept gap");
+
+            fallback.put(
+                    "correctValue",
+                    "The meaning of the concept"
+            );
+
+            fallback.put(
+                    "explanation",
+                    "Understanding the concept first helps solve the full question."
+            );
+
+            fallback.put(
+                    "diagnosedMisconception",
+                    "Student may not understand the base concept."
+            );
+
+            fallback.put(
+                    "diagnosticFocus",
+                    "Concept understanding"
+            );
+
+            fallback.put(
+                    "suspectedWeakness",
+                    "concept gap"
+            );
+
             fallback.put("confidence", "low");
+
         } else {
-            fallback.put("questionText", "Which is the best first step when solving a new question?");
-            fallback.put("optionA", "Read carefully and identify what is asked");
-            fallback.put("optionB", "Choose any answer quickly");
-            fallback.put("optionC", "Ignore the question");
-            fallback.put("optionD", "Look only at the options");
+
+            fallback.put(
+                    "questionText",
+                    "Which is the best first step when solving a new question?"
+            );
+
+            fallback.put(
+                    "optionA",
+                    "Read carefully and identify what is asked"
+            );
+
+            fallback.put(
+                    "optionB",
+                    "Choose any answer quickly"
+            );
+
+            fallback.put(
+                    "optionC",
+                    "Ignore the question"
+            );
+
+            fallback.put(
+                    "optionD",
+                    "Look only at the options"
+            );
+
             fallback.put("correctAnswer", "A");
-            fallback.put("correctValue", "Read carefully and identify what is asked");
-            fallback.put("explanation", "Reading carefully helps us understand what to solve.");
-            fallback.put("diagnosedMisconception", "Student may be rushing without understanding the question.");
-            fallback.put("diagnosticFocus", "Foundational problem understanding");
-            fallback.put("suspectedWeakness", "procedural confusion");
+
+            fallback.put(
+                    "correctValue",
+                    "Read carefully and identify what is asked"
+            );
+
+            fallback.put(
+                    "explanation",
+                    "Reading carefully helps us understand what to solve."
+            );
+
+            fallback.put(
+                    "diagnosedMisconception",
+                    "Student may be rushing without understanding the question."
+            );
+
+            fallback.put(
+                    "diagnosticFocus",
+                    "Foundational problem understanding"
+            );
+
+            fallback.put(
+                    "suspectedWeakness",
+                    "procedural confusion"
+            );
+
             fallback.put("confidence", "low");
         }
 
         return fallback;
-    }
-
-
-    private boolean isValidScaffold(Map<String, Object> q) {
-        return q != null
-                && q.containsKey("questionText")
-                && q.containsKey("optionA")
-                && q.containsKey("optionB")
-                && q.containsKey("optionC")
-                && q.containsKey("optionD")
-                && q.containsKey("correctAnswer");
-    }
-
-
-    private Map<String, Object> getFallback() {
-        return Map.of(
-                "questionText", "A pizza is cut into 4 equal slices. What does 1 slice show?",
-                "optionA", "A whole pizza",
-                "optionB", "A part of a whole",
-                "optionC", "Four pizzas",
-                "optionD", "No pizza",
-                "correctAnswer", "B",
-                "correctValue", "A part of a whole",
-                "explanation", "A fraction shows equal parts of one whole.",
-                "diagnosedMisconception", "Student may not understand that fractions represent equal parts of a whole."
-        );
     }
 }
