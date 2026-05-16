@@ -1,215 +1,228 @@
 package com.assessment.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class ScaffoldingService {
 
-    @Value("${gemini.api.key}")
-    private String geminiApiKey;
+    @Value("${groq.api.key}")
+    private String apiKey;
 
-    @Value("${gemini.api.url}")
-    private String geminiApiUrl;
+    @Value("${groq.api.url}")
+    private String apiUrl;
 
-    private final WebClient.Builder webClientBuilder;
+    @Value("${groq.model}")
+    private String model;
+
+    private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public ScaffoldingService(WebClient.Builder webClientBuilder) {
-        this.webClientBuilder = webClientBuilder;
-    }
+    public Map<String, Object> generateScaffold(
+            String questionText,
+            String topic,
+            String skillTag,
+            int difficulty,
+            int scaffoldAttempt,
+            String previousScaffold
+    ) {
 
-    public Map<String, Object> generateScaffold(String questionText,
-                                                String topic,
-                                                String skillTag,
-                                                int difficulty,
-                                                int scaffoldAttempt,
-                                                String previousScaffold) {
         try {
-                    String prompt = String.format("""
-        You are an expert AI diagnostic math tutor for primary school students.
-        
-        You are part of an adaptive diagnostic assessment system.
-        
-        A student answered a math question incorrectly.
-        
-        Your job is NOT simply to generate an easier question.
-        
-        Your real goal is to identify WHY the student is struggling.
-        
-        The scaffolded questions must help diagnose:
-        - whether the student lacks conceptual understanding
-        - whether the student struggles with calculation
-        - whether the student misunderstands representation
-        - whether the student cannot visualize the problem
-        - whether the student has procedural confusion
-        - whether the student understands the relationship between parts and wholes
-        - whether the student can apply the concept in context
-        
-        The system uses scaffolded questions to rule out possible misunderstandings one by one.
-        
-        IMPORTANT PEDAGOGICAL RULES:
-        - Ask follow-up questions strategically.
-        - Each scaffold should isolate ONE possible weakness.
-        - Do NOT test multiple skills at once.
-        - Reduce cognitive load.
-        - Keep wording extremely simple and natural.
-        - The question should sound like something a good primary teacher would ask.
-        - Avoid long storytelling.
-        - Avoid unnecessary details.
-        - Use visual and concrete examples when helpful.
-        - Use child-friendly contexts like pizza, cake, apples, blocks, chocolates, toys, sharing, groups, slices, etc.
-        - The goal is diagnosis, not difficulty for its own sake.
-        
-        VERY IMPORTANT:
-        The scaffolded question should help determine WHAT the student understands and WHAT they do not understand.
-        
-        For example:
-        - If the original question is calculation-heavy, the scaffold may test whether the concept itself is understood.
-        - If the original question is conceptual, the scaffold may test whether the student can visualize the idea.
-        - If the student struggles with improper fractions, the scaffold may test whether they understand grouping into wholes.
-        - If the student struggles with mixed fractions, the scaffold may test whether they understand remainder parts.
-        
-        SCAFFOLD ATTEMPT: %d
-        
-        Previous Scaffold:
-        %s
-        
-        SCAFFOLDING STRATEGY:
-        
-        If Scaffold Attempt = 1:
-        - Generate a follow-up diagnostic question.
-        - Keep the same core concept.
-        - Simplify the reasoning slightly.
-        - Focus on identifying the likely misunderstanding.
-        - Use visual/concrete examples.
-        - Keep moderate support.
-        - Preserve the same mathematical representation style where possible.
-        
-        If Scaffold Attempt = 2:
-        - Make the question MUCH easier.
-        - Focus ONLY on the most foundational missing idea.
-        - Use very small numbers.
-        - Use a different example from scaffold 1.
-        - Do NOT repeat wording or structure.
-        - Focus on ruling out misconceptions.
-        - Prioritize intuition over calculation.
-        - Ask the simplest possible diagnostic question that still reveals understanding.
-        
-        QUESTION DESIGN RULES:
-        - Use short, natural sentences.
-        - Keep questions under 25 words if possible.
-        - Avoid multi-step wording.
-        - Avoid abstract phrasing.
-        - Avoid unnecessary text.
-        - Questions should feel classroom-natural.
-        
-        OPTION DESIGN RULES:
-        - Exactly 4 MCQ options.
-        - One correct answer.
-        - Wrong answers must reflect realistic student mistakes.
-        - Distractors should reveal misconceptions.
-        - Options must match the original answer format.
-        - If original answers are mixed fractions, use mixed fractions.
-        - If original answers are whole numbers, use whole numbers.
-        - Do NOT use sentence-style options.
-        - Keep options concise.
-        
-        DIAGNOSTIC ANALYSIS:
-        You must also infer:
-        - likely misconception
-        - confidence level of the diagnosis
-        - what skill the student likely lacks
-        - what the scaffold is testing
-        
-        Original Question:
-        %s
-        
-        Topic:
-        %s
-        
-        Skill Type:
-        %s
-        
-        Original Difficulty:
-        %d
-        
-        Respond ONLY with valid JSON in this exact format:
-        {
-          "questionText": "diagnostic scaffolded question",
-          "optionA": "value",
-          "optionB": "value",
-          "optionC": "value",
-          "optionD": "value",
-          "correctAnswer": "A/B/C/D",
-          "correctValue": "actual correct answer",
-          "explanation": "brief conceptual explanation",
-          "diagnosedMisconception": "likely misunderstanding",
-          "diagnosticFocus": "what this scaffold is testing",
-          "suspectedWeakness": "concept/calculation/representation/application/procedural/etc",
-          "confidence": "low/medium/high"
-        }
-        """,
-                            scaffoldAttempt,
-                            previousScaffold == null ? "None" : previousScaffold,
-                            questionText,
-                            topic,
-                            skillTag,
-                            difficulty
-                    );
-
-            Map<String, Object> body = Map.of(
-                    "contents", List.of(
-                            Map.of("parts", List.of(
-                                    Map.of("text", prompt)
-                            ))
-                    )
+            String prompt = buildPrompt(
+                    questionText,
+                    topic,
+                    skillTag,
+                    difficulty,
+                    scaffoldAttempt,
+                    previousScaffold
             );
 
-            Map response = webClientBuilder.build()
-                    .post()
-                    .uri(geminiApiUrl + "?key=" + geminiApiKey)
-                    .bodyValue(body)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .timeout(Duration.ofSeconds(20))
-                    .block();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
 
-            if (response != null) {
-                List candidates = (List) response.get("candidates");
+            Map<String, Object> message = new HashMap<>();
+            message.put("role", "user");
+            message.put("content", prompt);
 
-                if (candidates != null && !candidates.isEmpty()) {
-                    Map candidate = (Map) candidates.get(0);
-                    Map content = (Map) candidate.get("content");
-                    List parts = (List) content.get("parts");
-                    Map part = (Map) parts.get(0);
+            Map<String, Object> body = new HashMap<>();
+            body.put("model", model);
+            body.put("messages", List.of(message));
+            body.put("temperature", 0.3);
 
-                    String text = part.get("text").toString()
-                            .replace("```json", "")
-                            .replace("```", "")
-                            .trim();
+            HttpEntity<Map<String, Object>> request =
+                    new HttpEntity<>(body, headers);
 
-                    Map<String, Object> scaffold =
-                            objectMapper.readValue(text, Map.class);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiUrl,
+                    HttpMethod.POST,
+                    request,
+                    String.class
+            );
 
-                    if (isValidScaffold(scaffold)) {
-                        return scaffold;
-                    }
-                }
-            }
+            JsonNode root = objectMapper.readTree(response.getBody());
+
+            String content = root
+                    .path("choices")
+                    .get(0)
+                    .path("message")
+                    .path("content")
+                    .asText();
+
+            content = cleanJson(content);
+
+            JsonNode scaffoldJson = objectMapper.readTree(content);
+
+            Map<String, Object> result = new HashMap<>();
+
+            result.put("questionText", scaffoldJson.path("questionText").asText());
+            result.put("optionA", scaffoldJson.path("optionA").asText());
+            result.put("optionB", scaffoldJson.path("optionB").asText());
+            result.put("optionC", scaffoldJson.path("optionC").asText());
+            result.put("optionD", scaffoldJson.path("optionD").asText());
+            result.put("correctAnswer", scaffoldJson.path("correctAnswer").asText());
+            result.put("correctValue", scaffoldJson.path("correctValue").asText());
+            result.put("explanation", scaffoldJson.path("explanation").asText());
+            result.put("diagnosedMisconception", scaffoldJson.path("diagnosedMisconception").asText());
+            result.put("diagnosticFocus", scaffoldJson.path("diagnosticFocus").asText());
+            result.put("suspectedWeakness", scaffoldJson.path("suspectedWeakness").asText());
+            result.put("confidence", scaffoldJson.path("confidence").asText());
+
+            return result;
 
         } catch (Exception e) {
-            System.out.println("Gemini scaffolding failed: " + e.getMessage());
+            System.out.println("Groq scaffolding failed: " + e.getMessage());
+            return fallbackScaffold(topic, skillTag, scaffoldAttempt);
+        }
+    }
+
+    private String buildPrompt(
+            String questionText,
+            String topic,
+            String skillTag,
+            int difficulty,
+            int scaffoldAttempt,
+            String previousScaffold
+    ) {
+
+        return """
+                You are an AI tutor generating scaffolded diagnostic MCQ questions for children.
+
+                Original question:
+                %s
+
+                Topic:
+                %s
+
+                Skill tag:
+                %s
+
+                Difficulty:
+                %d
+
+                Scaffold attempt:
+                %d
+
+                Previous scaffold:
+                %s
+
+                Your job:
+                - Generate ONE scaffolded MCQ.
+                - Do NOT just make the question easier.
+                - Diagnose WHY the student may be struggling.
+                - Focus on misconception, concept gap, calculation gap, visualization issue, or procedural confusion.
+                - Use child-friendly wording.
+                - Use simple visual or concrete examples when helpful.
+                - Keep options short.
+                - Return JSON only.
+                - Do not include markdown.
+                - Do not include explanation outside JSON.
+
+                If scaffoldAttempt is 1:
+                - Make a simpler diagnostic question on the same core idea.
+
+                If scaffoldAttempt is 2:
+                - Make it much easier.
+                - Check the most foundational understanding.
+
+                Return exactly this JSON format:
+
+                {
+                  "questionText": "...",
+                  "optionA": "...",
+                  "optionB": "...",
+                  "optionC": "...",
+                  "optionD": "...",
+                  "correctAnswer": "A",
+                  "correctValue": "...",
+                  "explanation": "...",
+                  "diagnosedMisconception": "...",
+                  "diagnosticFocus": "...",
+                  "suspectedWeakness": "...",
+                  "confidence": "medium"
+                }
+                """.formatted(
+                questionText,
+                topic,
+                skillTag,
+                difficulty,
+                scaffoldAttempt,
+                previousScaffold == null ? "None" : previousScaffold
+        );
+    }
+
+    private String cleanJson(String content) {
+        return content
+                .replace("```json", "")
+                .replace("```", "")
+                .trim();
+    }
+
+    private Map<String, Object> fallbackScaffold(
+            String topic,
+            String skillTag,
+            int scaffoldAttempt
+    ) {
+
+        Map<String, Object> fallback = new HashMap<>();
+
+        if (scaffoldAttempt == 1) {
+            fallback.put("questionText", "Let's try this in a simpler way. What should we understand first in this topic?");
+            fallback.put("optionA", "The meaning of the concept");
+            fallback.put("optionB", "Only the final answer");
+            fallback.put("optionC", "Guessing the option");
+            fallback.put("optionD", "Skipping the steps");
+            fallback.put("correctAnswer", "A");
+            fallback.put("correctValue", "The meaning of the concept");
+            fallback.put("explanation", "Understanding the concept first helps solve the full question.");
+            fallback.put("diagnosedMisconception", "Student may not understand the base concept.");
+            fallback.put("diagnosticFocus", "Concept understanding");
+            fallback.put("suspectedWeakness", "concept gap");
+            fallback.put("confidence", "low");
+        } else {
+            fallback.put("questionText", "Which is the best first step when solving a new question?");
+            fallback.put("optionA", "Read carefully and identify what is asked");
+            fallback.put("optionB", "Choose any answer quickly");
+            fallback.put("optionC", "Ignore the question");
+            fallback.put("optionD", "Look only at the options");
+            fallback.put("correctAnswer", "A");
+            fallback.put("correctValue", "Read carefully and identify what is asked");
+            fallback.put("explanation", "Reading carefully helps us understand what to solve.");
+            fallback.put("diagnosedMisconception", "Student may be rushing without understanding the question.");
+            fallback.put("diagnosticFocus", "Foundational problem understanding");
+            fallback.put("suspectedWeakness", "procedural confusion");
+            fallback.put("confidence", "low");
         }
 
-        return getFallback();
+        return fallback;
     }
+
 
     private boolean isValidScaffold(Map<String, Object> q) {
         return q != null
@@ -220,6 +233,7 @@ public class ScaffoldingService {
                 && q.containsKey("optionD")
                 && q.containsKey("correctAnswer");
     }
+
 
     private Map<String, Object> getFallback() {
         return Map.of(
