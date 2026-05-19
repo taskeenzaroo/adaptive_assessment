@@ -156,6 +156,35 @@ public class AssessmentService {
     }
 
     @Transactional
+    public Map<String, Object> abandonAssessment(Long sessionId) {
+
+        AssessmentSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        if (session.getStatus() != AssessmentSession.SessionStatus.IN_PROGRESS) {
+            return Map.of(
+                    "message", "Session already ended",
+                    "sessionId", sessionId,
+                    "status", session.getStatus().name()
+            );
+        }
+
+        session.setStatus(AssessmentSession.SessionStatus.ABANDONED);
+        session.setEndedAt(LocalDateTime.now());
+
+        sessionRepository.save(session);
+
+        adaptiveEngine.removeSession(sessionId);
+
+        return Map.of(
+                "message", "Assessment abandoned successfully",
+                "sessionId", sessionId,
+                "status", "ABANDONED"
+        );
+    }
+
+
+    @Transactional
     public Map<String, Object> completeSession(Long sessionId,
                                                AssessmentSession session,
                                                Map<String, Object> data) {

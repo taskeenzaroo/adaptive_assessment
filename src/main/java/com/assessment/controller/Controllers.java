@@ -75,6 +75,11 @@ class AssessmentController {
         );
     }
 
+    @PostMapping("/abandon/{sessionId}")
+    public ResponseEntity<?> abandonAssessment(@PathVariable Long sessionId) {
+        return ResponseEntity.ok(assessmentService.abandonAssessment(sessionId));
+    }
+
     // REPORTS
     @GetMapping("/report/latest")
     public ResponseEntity<?> latest(@AuthenticationPrincipal UserDetails userDetails) {
