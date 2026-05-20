@@ -27,6 +27,63 @@ public class SessionState {
     private Map<String, Integer> scaffoldCount = new HashMap<>();
     private int totalQuestionsAnswered=0;
 
+    //diagnosed gap
+    private boolean diagnosticMode = false;
+    private Long originalQuestionId;
+    private String diagnosticPlanJson;
+    private int currentDiagnosticStep = 0;
+    private String lastDiagnosticQuestionJson;
+    private List<String> diagnosedWeaknesses = new ArrayList<>();
+
+    public boolean isDiagnosticMode() {
+        return diagnosticMode;
+    }
+
+    public void setDiagnosticMode(boolean diagnosticMode) {
+        this.diagnosticMode = diagnosticMode;
+    }
+
+    public Long getOriginalQuestionId() {
+        return originalQuestionId;
+    }
+
+    public void setOriginalQuestionId(Long originalQuestionId) {
+        this.originalQuestionId = originalQuestionId;
+    }
+
+    public String getDiagnosticPlanJson() {
+        return diagnosticPlanJson;
+    }
+
+    public void setDiagnosticPlanJson(String diagnosticPlanJson) {
+        this.diagnosticPlanJson = diagnosticPlanJson;
+    }
+
+    public int getCurrentDiagnosticStep() {
+        return currentDiagnosticStep;
+    }
+
+    public void setCurrentDiagnosticStep(int currentDiagnosticStep) {
+        this.currentDiagnosticStep = currentDiagnosticStep;
+    }
+
+    public String getLastDiagnosticQuestionJson() {
+        return lastDiagnosticQuestionJson;
+    }
+
+    public void setLastDiagnosticQuestionJson(String lastDiagnosticQuestionJson) {
+        this.lastDiagnosticQuestionJson = lastDiagnosticQuestionJson;
+    }
+
+    public List<String> getDiagnosedWeaknesses() {
+        return diagnosedWeaknesses;
+    }
+
+    public void addDiagnosedWeakness(String weakness) {
+        this.diagnosedWeaknesses.add(weakness);
+    }
+
+
     public static final double LEARNING_RATE = 0.3;
     public static final double THETA_MIN = 1.0;
     public static final double THETA_MAX = 5.0;
@@ -103,6 +160,8 @@ public class SessionState {
         scaffoldingAttempts = 0;
         scaffoldingOriginalQuestionId = null;
         currentScaffoldedQuestion = null;
+        this.diagnosticPlanJson = null;
+        this.currentDiagnosticStep = 0;
     }
 
     // ── Getters and Setters ────────────────────────────────────────────────

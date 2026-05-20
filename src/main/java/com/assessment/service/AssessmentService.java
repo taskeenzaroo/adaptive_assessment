@@ -69,7 +69,7 @@ public class AssessmentService {
         session.setStudent(student);
         session.setCurrentTopic(topics.get(0));
         session.setCurrentSkillTag(Question.SkillTag.concept);
-        session.setCurrentDifficulty(3);
+        session.setCurrentDifficulty(5); //changed it to highest difficulty
         session.setStatus(AssessmentSession.SessionStatus.IN_PROGRESS);
         session.setStartedAt(LocalDateTime.now());
 

@@ -190,14 +190,27 @@ public class AdaptiveEngine {
             state.setConsecutiveWrong(state.getConsecutiveWrong() + 1);
             state.setConsecutiveCorrect(0);
 
-            Map<String, Object> scaffoldQ = scaffoldingService.generateScaffold(
-                    question.getQuestionText(),
-                    question.getTopic(),
-                    question.getSkillTag().name(),
-                    question.getDifficulty(),
-                    1,
-                    null
-            );
+            String diagnosticPlanJson =
+                    scaffoldingService.generateDiagnosticPlan(
+                            question.getQuestionText(),
+                            question.getTopic(),
+                            question.getSkillTag().name(),
+                            question.getDifficulty()
+                    );
+
+            Map<String, Object> scaffoldQ =
+                    scaffoldingService.generateDiagnosticQuestion(
+                            question.getQuestionText(),
+                            question.getTopic(),
+                            question.getSkillTag().name(),
+                            question.getDifficulty(),
+                            diagnosticPlanJson,
+                            1
+                    );
+
+            state.setDiagnosticPlanJson(diagnosticPlanJson);
+
+            state.setCurrentDiagnosticStep(1);
 
             state.setScaffoldingActive(true);
             state.setScaffoldingAttempts(1);
@@ -205,6 +218,8 @@ public class AdaptiveEngine {
             state.setCurrentScaffoldedQuestion(toJson(scaffoldQ));
 
             result.put("scaffolding", true);
+            result.put("diagnosticMode", true);
+            result.put("diagnosticStep", 1);
             result.put("sessionComplete", false);
             result.put("scaffoldedQuestion", scaffoldQ);
             result.put("message", "Let us try a simpler version");
@@ -263,47 +278,56 @@ public class AdaptiveEngine {
         Map<String, Object> result = new HashMap<>();
         result.put("wasCorrect", correct);
 
-        if (correct) {
-            state.resetScaffolding();
-            state.setCurrentDifficulty(Math.max(1, state.getCurrentDifficulty() - 1));
-            state.advanceToNextSkill();
+        if (!correct) {
+            Object weakness = currentScaffold.get("failureMeaning");
 
-            result.put("scaffolding", false);
-            result.put("sessionComplete", false);
-            result.put("message", "Good! Continuing at difficulty " + state.getCurrentDifficulty());
+            if (weakness != null) {
+                state.addDiagnosedWeakness(weakness.toString());
+            }
+        }
 
-        } else if (state.getScaffoldingAttempts() < SessionState.MAX_SCAFFOLDING_ATTEMPTS) {
+        if (state.getCurrentDiagnosticStep() < 4) {
 
-            state.setScaffoldingAttempts(state.getScaffoldingAttempts() + 1);
+            int nextStep = state.getCurrentDiagnosticStep() + 1;
 
-            Map<String, Object> newScaffold = scaffoldingService.generateScaffold(
-                    origQ != null ? origQ.getQuestionText() : "",
-                    state.getCurrentTopic(),
-                    state.getCurrentSkillTag().name(),
-                    Math.max(1, state.getCurrentDifficulty() - 1),
-                    2,
-                    state.getCurrentScaffoldedQuestion()
-            );
+            state.setCurrentDiagnosticStep(nextStep);
+            state.setScaffoldingAttempts(nextStep);
+
+            Map<String, Object> newScaffold =
+                    scaffoldingService.generateDiagnosticQuestion(
+                            origQ != null ? origQ.getQuestionText() : "",
+                            state.getCurrentTopic(),
+                            state.getCurrentSkillTag().name(),
+                            Math.max(1, state.getCurrentDifficulty() - 1),
+                            state.getDiagnosticPlanJson(),
+                            nextStep
+                    );
 
             state.setCurrentScaffoldedQuestion(toJson(newScaffold));
 
             result.put("scaffolding", true);
+            result.put("diagnosticMode", true);
+            result.put("diagnosticStep", nextStep);
             result.put("sessionComplete", false);
             result.put("scaffoldedQuestion", newScaffold);
-            result.put("message", "Let us try one more simpler version");
+            result.put("message", "Let us check the next part.");
 
         } else {
+
             double newTheta = state.updateTheta(false);
+
+            List<String> finalWeaknesses = new ArrayList<>(state.getDiagnosedWeaknesses());
 
             state.resetScaffolding();
             state.setCurrentDifficulty(Math.max(1, state.getCurrentDifficulty() - 1));
+            state.advanceToNextSkill();
 
             result.put("newTheta", newTheta);
             result.put("scaffolding", false);
+            result.put("diagnosticMode", false);
             result.put("sessionComplete", false);
-            result.put("message", "Difficulty decreased to "
-                    + state.getCurrentDifficulty()
-                    + ". Retrying same skill.");
+            result.put("diagnosedWeaknesses", finalWeaknesses);
+            result.put("message", "Diagnostic breakdown complete. Moving ahead.");
         }
 
         return result;

@@ -33,6 +33,39 @@ public class ScaffoldingLog {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(name = "diagnostic_step")
+    private Integer diagnosticStep;
+
+    @Column(name = "prerequisite_tested", columnDefinition = "TEXT")
+    private String prerequisiteTested;
+
+    @Column(name = "failure_meaning", columnDefinition = "TEXT")
+    private String failureMeaning;
+
+    public Integer getDiagnosticStep() {
+        return diagnosticStep;
+    }
+
+    public void setDiagnosticStep(Integer diagnosticStep) {
+        this.diagnosticStep = diagnosticStep;
+    }
+
+    public String getPrerequisiteTested() {
+        return prerequisiteTested;
+    }
+
+    public void setPrerequisiteTested(String prerequisiteTested) {
+        this.prerequisiteTested = prerequisiteTested;
+    }
+
+    public String getFailureMeaning() {
+        return failureMeaning;
+    }
+
+    public void setFailureMeaning(String failureMeaning) {
+        this.failureMeaning = failureMeaning;
+    }
+
     public ScaffoldingLog() {}
 
     public Long getId() { return id; }
