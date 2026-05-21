@@ -246,6 +246,60 @@ public class AssessmentService {
                 ? (int) Math.round((double) correct / total * 100)
                 : 0;
 
+        List<Report> previousReports =
+                reportRepository.findByStudentIdOrderByGeneratedAtDesc(
+                        session.getStudent().getId()
+                );
+
+        int assessmentsTaken = previousReports.size() + 1;
+
+        double previousAverage = previousReports.stream()
+                .mapToInt(r -> {
+                    try {
+                        Map<String, Object> oldReport =
+                                objectMapper.readValue(r.getSummaryJson(), Map.class);
+
+                        Object score = oldReport.get("overallAccuracy");
+
+                        if (score instanceof Number) {
+                            return ((Number) score).intValue();
+                        }
+
+                        return 0;
+
+                    } catch (Exception e) {
+                        return 0;
+                    }
+                })
+                .average()
+                .orElse(0.0);
+
+        double averageScore = previousReports.isEmpty()
+                ? overallAccuracy
+                : Math.round(((previousAverage * previousReports.size()) + overallAccuracy)
+                / assessmentsTaken);
+
+        Set<String> topicsCovered = new LinkedHashSet<>();
+
+        for (Report r : previousReports) {
+            try {
+                Map<String, Object> oldReport =
+                        objectMapper.readValue(r.getSummaryJson(), Map.class);
+
+                Object topics = oldReport.get("topicsAssessed");
+
+                if (topics instanceof List<?>) {
+                    for (Object t : (List<?>) topics) {
+                        topicsCovered.add(String.valueOf(t));
+                    }
+                }
+
+            } catch (Exception ignored) {
+            }
+        }
+
+        topicsCovered.addAll(state.getTopicQueue());
+
         Map<String, Object> report = new LinkedHashMap<>();
 
         report.put("sessionId", sessionId);
@@ -257,17 +311,19 @@ public class AssessmentService {
         report.put("scaffoldingEvents", scaffoldLogs.size());
         report.put("thetaPerTopic", state.getThetaPerTopic());
         report.put("generatedAt", LocalDateTime.now().toString());
+
         report.put("assessmentStatus", session.getStatus().name());
 
         if (session.getStatus() == AssessmentSession.SessionStatus.ABANDONED) {
-
             report.put(
                     "terminationNote",
-                    "Assessment was terminated after "
-                            + total
-                            + " questions."
+                    "Assessment was terminated after " + total + " questions."
             );
         }
+
+        report.put("assessmentsTaken", assessmentsTaken);
+        report.put("averageScore", averageScore);
+        report.put("topicsCovered", topicsCovered);
 
         Map<String, Object> topicBreakdown = new LinkedHashMap<>();
         List<String> recommendations = new ArrayList<>();
@@ -362,6 +418,11 @@ public class AssessmentService {
                     Object weakness = scaffoldJson.get("suspectedWeakness");
                     if (weakness != null && !weakness.toString().isBlank()) {
                         weaknesses.add("Possible weakness: " + weakness);
+                    }
+
+                    Object failureMeaning = scaffoldJson.get("failureMeaning");
+                    if (failureMeaning != null && !failureMeaning.toString().isBlank()) {
+                        weaknesses.add("Diagnostic gap: " + failureMeaning);
                     }
 
                 } catch (Exception ignored) {
