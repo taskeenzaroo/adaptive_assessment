@@ -34,6 +34,7 @@ public class SessionState {
     private int currentDiagnosticStep = 0;
     private String lastDiagnosticQuestionJson;
     private List<String> diagnosedWeaknesses = new ArrayList<>();
+    private String lastDiagnosticQuestion;
 
     public boolean isDiagnosticMode() {
         return diagnosticMode;
@@ -82,12 +83,19 @@ public class SessionState {
     public void addDiagnosedWeakness(String weakness) {
         this.diagnosedWeaknesses.add(weakness);
     }
+    public String getLastDiagnosticQuestion() {
+        return lastDiagnosticQuestion;
+    }
+
+    public void setLastDiagnosticQuestion(String lastDiagnosticQuestion) {
+        this.lastDiagnosticQuestion = lastDiagnosticQuestion;
+    }
 
 
     public static final double LEARNING_RATE = 0.3;
     public static final double THETA_MIN = 1.0;
     public static final double THETA_MAX = 5.0;
-    public static final int MAX_SCAFFOLDING_ATTEMPTS = 2;
+//    public static final int MAX_SCAFFOLDING_ATTEMPTS = 2;
     public static final double ADVANCE_ACCURACY_THRESHOLD = 0.7;
 
     public static final Map<Integer, Double> DIFFICULTY_WEIGHT = Map.of(
@@ -160,8 +168,13 @@ public class SessionState {
         scaffoldingAttempts = 0;
         scaffoldingOriginalQuestionId = null;
         currentScaffoldedQuestion = null;
-        this.diagnosticPlanJson = null;
-        this.currentDiagnosticStep = 0;
+
+        diagnosticMode = false;
+        originalQuestionId = null;
+        diagnosticPlanJson = null;
+        currentDiagnosticStep = 0;
+        lastDiagnosticQuestionJson = null;
+        lastDiagnosticQuestion = null;
     }
 
     // ── Getters and Setters ────────────────────────────────────────────────

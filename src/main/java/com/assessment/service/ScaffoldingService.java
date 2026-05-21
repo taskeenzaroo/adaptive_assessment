@@ -117,121 +117,123 @@ public class ScaffoldingService {
             String skillTag,
             int difficulty,
             String diagnosticPlanJson,
-            int diagnosticStep
+            int diagnosticStep,
+            String previousDiagnosticQuestion
     ) {
         try {
                     String prompt = """
-                You are an expert adaptive math tutor for children.
-        
-                A student answered the original math question incorrectly.
-        
-                A diagnostic plan has been created.
-                Your job is to generate ONE MCQ for the current diagnostic step.
-        
-                MAIN GOAL:
-                Diagnose the exact mathematical prerequisite the student may be struggling with.
-        
-                IMPORTANT QUESTION STYLE:
-                Generate an actual math problem, not a theory or definition question.
-        
-                Do NOT ask:
-                - What is an improper fraction?
-                - What does numerator mean?
-                - What is a denominator?
-                - What is a mixed fraction?
-        
-                Instead ask math-solving questions like:
-                - Which of these is an improper fraction?
-                - Convert 7/4 into a mixed fraction.
-                - Which fraction is equivalent to 1/2?
-                - What is the LCM of 4 and 6?
-                - Add 2/5 + 1/5.
-                - Change 1/3 to an equivalent fraction with denominator 6.
-        
-                RULES:
-                1. Test ONLY the prerequisite for the current diagnostic step.
-                2. The question must be connected to the original question.
-                3. The question should be easier than the original question.
-                4. Use actual numbers, fractions, equations, or visual/concrete examples.
-                5. Options must be actual math values, fractions, numbers, expressions, or short answer choices.
-                6. Do NOT make options long definitions.
-                7. Make sure the correct answer is mathematically correct.
-                8. Make sure correctAnswer matches the correct option.
-                9. Keep the wording child-friendly.
-                10. Return ONLY valid JSON.
-                11. Do not include markdown.
-                12. Do not explain outside JSON.
-        
-                If the diagnostic focus is concept:
-                - Ask a conceptual math-solving question instead of a definition question.
-                - The student should still perform a small mathematical action.
-                - Avoid simple recognition-only questions.
+                            You are an expert adaptive math tutor for children.
                             
-                GOOD examples:
-                - Convert 7/4 into a mixed fraction.
-                - Which fraction is greater than 1?
-                - Which fraction equals 1 and 1/2?
-                - Which of these fractions can be written as a mixed fraction?
-                - Which fraction is equivalent to 6/4?
+                                      A student answered the original math question incorrectly.
+                                      A diagnostic plan has already been created.
                             
-                BAD examples:
-                - What is an improper fraction?
-                - Which of these is an improper fraction?
-                - What does numerator mean?
-        
-                If the diagnostic focus is procedure:
-                - Ask the student to choose the correct next step.
-        
-                If the diagnostic focus is calculation:
-                - Ask the student to calculate a simpler value.
-        
-                If the diagnostic focus is application:
-                - Ask a small version of the original problem.
-        
-                Return exactly this JSON:
-        
-                {
-                  "questionText": "...",
-                  "optionA": "...",
-                  "optionB": "...",
-                  "optionC": "...",
-                  "optionD": "...",
-                  "correctAnswer": "A",
-                  "correctValue": "...",
-                  "explanation": "...",
-                  "diagnosedMisconception": "...",
-                  "diagnosticFocus": "...",
-                  "suspectedWeakness": "...",
-                  "confidence": "medium",
-                  "diagnosticStep": 1,
-                  "prerequisiteTested": "...",
-                  "failureMeaning": "..."
-                }
-        
-                Original Question:
-                %s
-        
-                Topic:
-                %s
-        
-                Skill Tag:
-                %s
-        
-                Difficulty:
-                %d
-        
-                Diagnostic Plan:
-                %s
-        
-                Current Diagnostic Step:
-                %d
+                                      Your job:
+                                      Generate ONE diagnostic MCQ for the current diagnostic step.
+                            
+                                      MAIN GOAL:
+                                      Find the exact mathematical gap by asking a smaller, easier math question.
+                            
+                                      VERY IMPORTANT:
+                                      Generate an actual math problem.
+                                      Do NOT generate theory-only or definition-only questions.
+                            
+                                      The student should solve, compare, convert, calculate, identify a value, or choose the correct next step.
+                            
+                                      DO NOT ask questions like:
+                                      - What is a numerator?
+                                      - What is a denominator?
+                                      - What is an improper fraction?
+                                      - What does mixed fraction mean?
+                            
+                                      GOOD question types:
+                                      - Convert 7/4 into a mixed fraction.
+                                      - Which fraction is greater than 1?
+                                      - Which fraction is equivalent to 1/2?
+                                      - What is the LCM of 4 and 6?
+                                      - Add 2/5 + 1/5.
+                                      - What should be the next step to solve this fraction problem?
+                            
+                                      RULES:
+                                      1. Test ONLY the current diagnostic step.
+                                      2. Make it easier than the original question.
+                                      3. Stay connected to the original question topic.
+                                      4. Do NOT repeat the original question.
+                                      5. Do NOT reuse the exact same numbers from the original question.
+                                      6. Do NOT repeat any previous scaffold question.
+                                      7. Options must be short math values, fractions, numbers, expressions, or short steps.
+                                      8. Do NOT make all options wrong.
+                                      9. Exactly ONE option must be correct.
+                                      10. The other three options must be plausible but clearly incorrect.
+                                      11. correctAnswer must match the correct option letter.
+                                      12. correctValue must match the correct option text exactly.
+                                      13. Before returning, silently solve the question and verify the answer.
+                                      14. Return ONLY valid JSON.
+                                      15. Do not include markdown.
+                                      16. Do not explain outside JSON.
+                            
+                                      If diagnostic focus is concept:
+                                      Ask a math-based concept check, not a definition.
+                                      Example:
+                                      "Which fraction is greater than 1?"
+                                      Options: "3/2", "1/3", "2/5", "4/7"
+                            
+                                      If diagnostic focus is procedure:
+                                      Ask for the correct next step.
+                            
+                                      If diagnostic focus is calculation:
+                                      Ask for a smaller calculation.
+                            
+                                      If diagnostic focus is application:
+                                      Ask a simpler version of the original problem.
+                            
+                                      Return exactly this JSON:
+                            
+                                      {
+                                        "questionText": "...",
+                                        "optionA": "...",
+                                        "optionB": "...",
+                                        "optionC": "...",
+                                        "optionD": "...",
+                                        "correctAnswer": "A",
+                                        "correctValue": "...",
+                                        "explanation": "...",
+                                        "diagnosedMisconception": "...",
+                                        "diagnosticFocus": "...",
+                                        "suspectedWeakness": "...",
+                                        "confidence": "medium",
+                                        "diagnosticStep": 1,
+                                        "prerequisiteTested": "...",
+                                        "failureMeaning": "..."
+                                      }
+                            
+                                      Original Question:
+                                      %s
+                            
+                                      Topic:
+                                      %s
+                            
+                                      Skill Tag:
+                                      %s
+                            
+                                      Difficulty:
+                                      %d
+                            
+                                      Diagnostic Plan:
+                                      %s
+                            
+                                      Current Diagnostic Step:
+                                      %d
+                            
+                                      Previous Diagnostic Question:
+                                      %s
                 """.formatted(
                     questionText,
                     topic,
                     skillTag,
                     difficulty,
                     diagnosticPlanJson,
-                    diagnosticStep
+                    diagnosticStep,
+                    previousDiagnosticQuestion
             );
 
             String content = callGroq(prompt);

@@ -14,15 +14,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class AdaptiveEngine {
 
-    private static final int MAX_QUESTIONS = 5; // change to 3 for quick testing
+    private static final int MAX_QUESTIONS = 7;
 
     private final QuestionRepository questionRepository;
     private final ThetaEstimateRepository thetaRepository;
     private final SessionAnswerRepository answerRepository;
     private final ScaffoldingLogRepository scaffoldingLogRepository;
     private final ScaffoldingService scaffoldingService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<Long, SessionState> activeSessions = new ConcurrentHashMap<>();
 
     public AdaptiveEngine(QuestionRepository questionRepository,
@@ -39,6 +39,7 @@ public class AdaptiveEngine {
 
     public SessionState startSession(Long sessionId, Long studentId, List<String> topics) {
         SessionState state = new SessionState();
+
         state.setSessionId(sessionId);
         state.setStudentId(studentId);
         state.setTopicQueue(topics);
@@ -48,11 +49,11 @@ public class AdaptiveEngine {
         for (String topic : topics) {
             thetaRepository.findByStudentIdAndTopic(studentId, topic)
                     .ifPresent(te -> state.getThetaPerTopic().put(topic, te.getCurrentTheta()));
+
             state.getThetaPerTopic().putIfAbsent(topic, 3.0);
         }
 
-        double startTheta = state.getThetaPerTopic().get(topics.get(0));
-        state.setCurrentDifficulty((5));
+        state.setCurrentDifficulty(5);
 
         activeSessions.put(sessionId, state);
         return state;
@@ -63,15 +64,22 @@ public class AdaptiveEngine {
 
         if (state.isScaffoldingActive()) {
             Map<String, Object> r = new HashMap<>();
+
             r.put("isScaffolding", true);
             r.put("scaffolding", true);
+            r.put("diagnosticMode", true);
+            r.put("diagnosticStep", state.getCurrentDiagnosticStep());
             r.put("scaffoldedQuestion", scaffoldFromState(state));
             r.put("originalQuestionId", state.getScaffoldingOriginalQuestionId());
+            r.put("totalQuestionsAnswered", state.getTotalQuestionsAnswered());
+
             return r;
         }
 
         List<Long> usedIds = new ArrayList<>(state.getUsedQuestionIds());
-        if (usedIds.isEmpty()) usedIds.add(-1L);
+        if (usedIds.isEmpty()) {
+            usedIds.add(-1L);
+        }
 
         List<Question> candidates = questionRepository.findAvailableQuestions(
                 state.getCurrentTopic(),
@@ -102,6 +110,7 @@ public class AdaptiveEngine {
         state.getUsedQuestionIds().add(q.getId());
 
         Map<String, Object> r = new HashMap<>();
+
         r.put("isScaffolding", false);
         r.put("questionId", q.getId());
         r.put("questionText", q.getQuestionText());
@@ -113,6 +122,7 @@ public class AdaptiveEngine {
         r.put("skillTag", state.getCurrentSkillTag().name());
         r.put("difficulty", state.getCurrentDifficulty());
         r.put("currentTheta", state.getThetaPerTopic().getOrDefault(state.getCurrentTopic(), 3.0));
+        r.put("totalQuestionsAnswered", state.getTotalQuestionsAnswered());
 
         return r;
     }
@@ -148,6 +158,7 @@ public class AdaptiveEngine {
 
         Map<String, Object> result = new HashMap<>();
         result.put("wasCorrect", correct);
+        result.put("totalQuestionsAnswered", state.getTotalQuestionsAnswered());
 
         if (correct) {
             state.setConsecutiveCorrect(state.getConsecutiveCorrect() + 1);
@@ -182,6 +193,7 @@ public class AdaptiveEngine {
                     result.put("message", "Assessment complete");
                     return result;
                 }
+
             } else {
                 result.put("message", "Moving to " + state.getCurrentSkillTag().name());
             }
@@ -190,28 +202,25 @@ public class AdaptiveEngine {
             state.setConsecutiveWrong(state.getConsecutiveWrong() + 1);
             state.setConsecutiveCorrect(0);
 
-            String diagnosticPlanJson =
-                    scaffoldingService.generateDiagnosticPlan(
-                            question.getQuestionText(),
-                            question.getTopic(),
-                            question.getSkillTag().name(),
-                            question.getDifficulty()
-                    );
+            String diagnosticPlanJson = scaffoldingService.generateDiagnosticPlan(
+                    question.getQuestionText(),
+                    question.getTopic(),
+                    question.getSkillTag().name(),
+                    question.getDifficulty()
+            );
 
-            Map<String, Object> scaffoldQ =
-                    scaffoldingService.generateDiagnosticQuestion(
-                            question.getQuestionText(),
-                            question.getTopic(),
-                            question.getSkillTag().name(),
-                            question.getDifficulty(),
-                            diagnosticPlanJson,
-                            1
-                    );
+            Map<String, Object> scaffoldQ = scaffoldingService.generateDiagnosticQuestion(
+                    question.getQuestionText(),
+                    question.getTopic(),
+                    question.getSkillTag().name(),
+                    question.getDifficulty(),
+                    diagnosticPlanJson,
+                    1,
+                    ""
+            );
 
             state.setDiagnosticPlanJson(diagnosticPlanJson);
-
             state.setCurrentDiagnosticStep(1);
-
             state.setScaffoldingActive(true);
             state.setScaffoldingAttempts(1);
             state.setScaffoldingOriginalQuestionId(question.getId());
@@ -222,7 +231,7 @@ public class AdaptiveEngine {
             result.put("diagnosticStep", 1);
             result.put("sessionComplete", false);
             result.put("scaffoldedQuestion", scaffoldQ);
-            result.put("message", "Let us try a simpler version");
+            result.put("message", "Let us break this down step by step");
         }
 
         if (state.getTotalQuestionsAnswered() >= MAX_QUESTIONS) {
@@ -271,12 +280,13 @@ public class AdaptiveEngine {
         log.setGeneratedQuestion(state.getCurrentScaffoldedQuestion());
         log.setStudentAnswer(studentAnswer);
         log.setIsCorrect(correct);
-        log.setAttemptNumber(state.getScaffoldingAttempts());
+        log.setAttemptNumber(state.getCurrentDiagnosticStep());
 
         scaffoldingLogRepository.save(log);
 
         Map<String, Object> result = new HashMap<>();
         result.put("wasCorrect", correct);
+        result.put("totalQuestionsAnswered", state.getTotalQuestionsAnswered());
 
         if (!correct) {
             Object weakness = currentScaffold.get("failureMeaning");
@@ -293,15 +303,19 @@ public class AdaptiveEngine {
             state.setCurrentDiagnosticStep(nextStep);
             state.setScaffoldingAttempts(nextStep);
 
-            Map<String, Object> newScaffold =
-                    scaffoldingService.generateDiagnosticQuestion(
-                            origQ != null ? origQ.getQuestionText() : "",
-                            state.getCurrentTopic(),
-                            state.getCurrentSkillTag().name(),
-                            Math.max(1, state.getCurrentDifficulty() - 1),
-                            state.getDiagnosticPlanJson(),
-                            nextStep
-                    );
+            String previousDiagnosticQuestion = currentScaffold.get("questionText") != null
+                    ? currentScaffold.get("questionText").toString()
+                    : "";
+
+            Map<String, Object> newScaffold = scaffoldingService.generateDiagnosticQuestion(
+                    origQ != null ? origQ.getQuestionText() : "",
+                    state.getCurrentTopic(),
+                    state.getCurrentSkillTag().name(),
+                    Math.max(1, state.getCurrentDifficulty() - 1),
+                    state.getDiagnosticPlanJson(),
+                    nextStep,
+                    previousDiagnosticQuestion
+            );
 
             state.setCurrentScaffoldedQuestion(toJson(newScaffold));
 
@@ -310,7 +324,7 @@ public class AdaptiveEngine {
             result.put("diagnosticStep", nextStep);
             result.put("sessionComplete", false);
             result.put("scaffoldedQuestion", newScaffold);
-            result.put("message", "Let us check the next part.");
+            result.put("message", "Let us check the next part");
 
         } else {
 
@@ -378,7 +392,9 @@ public class AdaptiveEngine {
             for (int sign : new int[]{-1, 1}) {
                 int altDiff = state.getCurrentDifficulty() + (sign * delta);
 
-                if (altDiff < 1 || altDiff > 5) continue;
+                if (altDiff < 1 || altDiff > 5) {
+                    continue;
+                }
 
                 List<Question> result = questionRepository.findAvailableQuestions(
                         state.getCurrentTopic(),
@@ -425,15 +441,23 @@ public class AdaptiveEngine {
 
     private Map<String, Object> fallbackScaffold() {
         Map<String, Object> fallback = new HashMap<>();
-        fallback.put("questionText", "A pizza is cut into 4 equal slices. What does 1 slice show?");
-        fallback.put("optionA", "A whole pizza");
-        fallback.put("optionB", "A part of a whole");
-        fallback.put("optionC", "Four pizzas");
-        fallback.put("optionD", "No pizza");
-        fallback.put("correctAnswer", "B");
-        fallback.put("correctValue", "A part of a whole");
-        fallback.put("explanation", "A fraction shows equal parts of one whole.");
-        fallback.put("diagnosedMisconception", "Student may not understand that fractions represent equal parts of a whole.");
+
+        fallback.put("questionText", "Which fraction is greater than 1?");
+        fallback.put("optionA", "3/2");
+        fallback.put("optionB", "1/3");
+        fallback.put("optionC", "2/5");
+        fallback.put("optionD", "4/7");
+        fallback.put("correctAnswer", "A");
+        fallback.put("correctValue", "3/2");
+        fallback.put("explanation", "3/2 is greater than 1 because the numerator is greater than the denominator.");
+        fallback.put("diagnosedMisconception", "Student may not identify fractions greater than one.");
+        fallback.put("diagnosticFocus", "concept");
+        fallback.put("suspectedWeakness", "fraction size understanding");
+        fallback.put("confidence", "low");
+        fallback.put("diagnosticStep", 1);
+        fallback.put("prerequisiteTested", "Understanding fractions greater than one");
+        fallback.put("failureMeaning", "The student may struggle to identify improper fractions or fractions greater than one.");
+
         return fallback;
     }
 
