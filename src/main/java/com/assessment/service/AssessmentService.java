@@ -164,23 +164,28 @@ public class AssessmentService {
 
         if (session.getStatus() != AssessmentSession.SessionStatus.IN_PROGRESS) {
             return Map.of(
-                    "message", "Session already ended",
+                    "message", "Assessment already ended",
                     "sessionId", sessionId,
                     "status", session.getStatus().name()
             );
         }
 
+        SessionState state = adaptiveEngine.getState(sessionId);
+
         session.setStatus(AssessmentSession.SessionStatus.ABANDONED);
         session.setEndedAt(LocalDateTime.now());
-
         sessionRepository.save(session);
+
+        Map<String, Object> report = generateReport(sessionId, session, state);
 
         adaptiveEngine.removeSession(sessionId);
 
         return Map.of(
-                "message", "Assessment abandoned successfully",
+                "message", "Assessment ended successfully",
                 "sessionId", sessionId,
-                "status", "ABANDONED"
+                "status", "ABANDONED",
+                "reportGenerated", true,
+                "report", report
         );
     }
 
@@ -252,6 +257,17 @@ public class AssessmentService {
         report.put("scaffoldingEvents", scaffoldLogs.size());
         report.put("thetaPerTopic", state.getThetaPerTopic());
         report.put("generatedAt", LocalDateTime.now().toString());
+        report.put("assessmentStatus", session.getStatus().name());
+
+        if (session.getStatus() == AssessmentSession.SessionStatus.ABANDONED) {
+
+            report.put(
+                    "terminationNote",
+                    "Assessment was terminated after "
+                            + total
+                            + " questions."
+            );
+        }
 
         Map<String, Object> topicBreakdown = new LinkedHashMap<>();
         List<String> recommendations = new ArrayList<>();
