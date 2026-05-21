@@ -22,6 +22,8 @@ public class AssessmentService {
     private final SessionAnswerRepository answerRepository;
     private final ReportRepository reportRepository;
     private final ScaffoldingLogRepository scaffoldingLogRepository;
+    private final AiReportService aiReportService;
+
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -32,7 +34,7 @@ public class AssessmentService {
                              SkillMasteryRepository skillMasteryRepository,
                              SessionAnswerRepository answerRepository,
                              ReportRepository reportRepository,
-                             ScaffoldingLogRepository scaffoldingLogRepository) {
+                             ScaffoldingLogRepository scaffoldingLogRepository, AiReportService aiReportService) {
 
         this.adaptiveEngine = adaptiveEngine;
         this.sessionRepository = sessionRepository;
@@ -42,6 +44,7 @@ public class AssessmentService {
         this.answerRepository = answerRepository;
         this.reportRepository = reportRepository;
         this.scaffoldingLogRepository = scaffoldingLogRepository;
+        this.aiReportService = aiReportService;
     }
 
     @Transactional
@@ -139,8 +142,16 @@ public class AssessmentService {
             return result;
         }
 
-        if (Boolean.TRUE.equals(result.get("sessionComplete"))) {
+        Integer totalAnswered = result.get("totalQuestionsAnswered") != null
+                ? Integer.valueOf(result.get("totalQuestionsAnswered").toString())
+                : 0;
+
+        if (Boolean.TRUE.equals(result.get("sessionComplete")) && totalAnswered >= 7) {
             return completeSession(sessionId, session, result);
+        }
+
+        if (Boolean.TRUE.equals(result.get("sessionComplete")) && totalAnswered < 7) {
+            result.put("sessionComplete", false);
         }
 
         Map<String, Object> nextQ = adaptiveEngine.getNextQuestion(sessionId);
@@ -455,6 +466,8 @@ public class AssessmentService {
 
         report.put("topicBreakdown", topicBreakdown);
         report.put("recommendations", recommendations);
+        Map<String, Object> aiReport = aiReportService.generateAiReport(session, report);
+        report.put("aiReport", aiReport);
 
         try {
             Report savedReport = new Report();

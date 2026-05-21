@@ -189,9 +189,19 @@ public class AdaptiveEngine {
 
                 } else {
 
-                    result.put("sessionComplete", true);
-                    result.put("message", "Assessment complete");
-                    return result;
+                    if (state.getTotalQuestionsAnswered() >= MAX_QUESTIONS) {
+                        result.put("sessionComplete", true);
+                        result.put("message", "Assessment complete");
+                        return result;
+                    }
+
+                    state.getSkillsDoneThisCycle().clear();
+                    state.getUsedQuestionIds().clear();
+
+                    state.setCurrentSkillTag(Question.SkillTag.concept);
+                    state.advanceToNextSkill();
+
+                    result.put("message", "Continuing assessment cycle");
                 }
 
             } else {
@@ -239,6 +249,10 @@ public class AdaptiveEngine {
             result.put("scaffolding", false);
             result.put("message", "Assessment complete. Maximum question limit reached.");
             return result;
+        }
+
+        if (state.getTotalQuestionsAnswered() < MAX_QUESTIONS) {
+            result.put("sessionComplete", false);
         }
 
         return result;

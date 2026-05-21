@@ -154,12 +154,15 @@ public class SessionState {
     }
 
     public void advanceToNextSkill() {
+
         skillsDoneThisCycle.add(currentSkillTag);
-        for (Question.SkillTag skill : Question.SkillTag.values()) {
-            if (!skillsDoneThisCycle.contains(skill)) {
-                currentSkillTag = skill;
-                return;
-            }
+
+        Question.SkillTag[] skills = Question.SkillTag.values();
+
+        int currentIndex = currentSkillTag.ordinal();
+
+        if (currentIndex + 1 < skills.length) {
+            currentSkillTag = skills[currentIndex + 1];
         }
     }
 
