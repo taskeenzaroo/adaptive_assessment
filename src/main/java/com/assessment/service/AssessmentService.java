@@ -458,12 +458,16 @@ public class AssessmentService {
 
         try {
             Report savedReport = new Report();
+
             savedReport.setSession(session);
             savedReport.setStudent(session.getStudent());
             savedReport.setTotalQuestions(total);
             savedReport.setCorrectAnswers((int) correct);
             savedReport.setScaffoldingEvents(scaffoldLogs.size());
             savedReport.setSummaryJson(objectMapper.writeValueAsString(report));
+
+            // ADD THIS
+            savedReport.setGeneratedAt(LocalDateTime.now());
 
             reportRepository.save(savedReport);
 
