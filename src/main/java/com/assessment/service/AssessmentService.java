@@ -513,8 +513,15 @@ public class AssessmentService {
 
         if (reports.isEmpty()) return Collections.emptyMap();
 
+        Report latest = reports.stream()
+                .max(Comparator.comparing(Report::getId))
+                .orElse(reports.get(0));
+
         try {
-            return objectMapper.readValue(reports.get(0).getSummaryJson(), Map.class);
+            return objectMapper.readValue(
+                    latest.getSummaryJson(),
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
+            );
         } catch (Exception e) {
             return Collections.emptyMap();
         }
