@@ -52,7 +52,7 @@ public class AdaptiveEngine {
         }
 
         double startTheta = state.getThetaPerTopic().get(topics.get(0));
-        state.setCurrentDifficulty((int) Math.round(Math.min(5, Math.max(1, startTheta))));
+        state.setCurrentDifficulty((5));
 
         activeSessions.put(sessionId, state);
         return state;
