@@ -1,12 +1,10 @@
-FROM eclipse-temurin:17
+FROM maven:3.9-eclipse-temurin-17
 
 WORKDIR /app
 
 COPY assessment_system/ .
 
-RUN chmod +x mvnw
-
-RUN ./mvnw clean package -DskipTests
+RUN mvn clean package -DskipTests
 
 EXPOSE 10000
 
