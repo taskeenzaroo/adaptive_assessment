@@ -2,7 +2,7 @@ FROM eclipse-temurin:17
 
 WORKDIR /app
 
-COPY . .
+COPY assessment_system/ .
 
 RUN chmod +x mvnw
 
