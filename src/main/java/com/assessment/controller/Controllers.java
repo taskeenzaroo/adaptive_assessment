@@ -95,6 +95,16 @@ class AssessmentController {
         );
     }
 
+    @GetMapping("/reports")
+    public ResponseEntity<?> allReports(@AuthenticationPrincipal UserDetails userDetails) {
+
+        Long studentId = getId(userDetails);
+
+        return ResponseEntity.ok(
+                assessmentService.getAllReports(studentId)
+        );
+    }
+
     // HELPER
     private Long getId(UserDetails u) {
         return userRepository.findByEmail(u.getUsername())

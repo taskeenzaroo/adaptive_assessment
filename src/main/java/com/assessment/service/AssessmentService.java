@@ -554,4 +554,29 @@ public class AssessmentService {
                 })
                 .orElse(new HashMap<String, Object>());
     }
+    public List<Map<String, Object>> getAllReports(Long studentId) {
+
+        List<Report> reports =
+                reportRepository.findByStudentIdOrderByGeneratedAtDesc(studentId);
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Report r : reports) {
+
+            try {
+
+                Map<String, Object> report =
+                        objectMapper.readValue(
+                                r.getSummaryJson(),
+                                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
+                        );
+
+                result.add(report);
+
+            } catch (Exception ignored) {
+            }
+        }
+
+        return result;
+    }
 }
