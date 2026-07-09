@@ -33,60 +33,36 @@ public class ScaffoldingService {
     ) {
         try {
             String prompt = """
-                    You are an expert diagnostic tutor.
-
-                    A student answered this question incorrectly.
-
-                    Your job is to break the question into 4 generic prerequisite diagnostic steps.
-
-                    The steps should identify where the student's understanding breaks down.
-
-                    Use this generic structure:
-                    1. Concept understanding
-                    2. Procedure or method understanding
-                    3. Calculation or execution
-                    4. Application or representation
-
-                    But customize each step to the given question.
-
-                    Return ONLY valid JSON.
-                    Do not include markdown.
-                    Do not explain outside JSON.
-
-                    Return exactly this format:
-
-                    {
-                      "steps": [
-                        {
-                          "stepNumber": 1,
-                          "focus": "concept",
-                          "prerequisite": "...",
-                          "diagnosticPurpose": "...",
-                          "failureMeaning": "..."
-                        },
-                        {
-                          "stepNumber": 2,
-                          "focus": "procedure",
-                          "prerequisite": "...",
-                          "diagnosticPurpose": "...",
-                          "failureMeaning": "..."
-                        },
-                        {
-                          "stepNumber": 3,
-                          "focus": "calculation",
-                          "prerequisite": "...",
-                          "diagnosticPurpose": "...",
-                          "failureMeaning": "..."
-                        },
-                        {
-                          "stepNumber": 4,
-                          "focus": "application",
-                          "prerequisite": "...",
-                          "diagnosticPurpose": "...",
-                          "failureMeaning": "..."
-                        }
-                      ]
-                    }
+                    Your job is to create ONLY TWO diagnostic stages.
+                    
+                     Stage 1:
+                     Identify the most likely prerequisite skill required to solve the original question.
+                    
+                     Stage 2:
+                     If the student still struggles after Stage 1, identify the deeper foundational skill that should be tested.
+                    
+                     The two stages should progressively diagnose the student's misunderstanding without becoming repetitive.
+                    
+                     Return ONLY valid JSON.
+                    
+                     {
+                       "steps": [
+                         {
+                           "stepNumber": 1,
+                           "focus": "...",
+                           "prerequisite": "...",
+                           "diagnosticPurpose": "...",
+                           "failureMeaning": "..."
+                         },
+                         {
+                           "stepNumber": 2,
+                           "focus": "...",
+                           "prerequisite": "...",
+                           "diagnosticPurpose": "...",
+                           "failureMeaning": "..."
+                         }
+                       ]
+                     }
 
                     Original Question:
                     %s
@@ -122,110 +98,167 @@ public class ScaffoldingService {
     ) {
         try {
             String prompt = """
-                            You are an expert adaptive math tutor for children.
-                            
-                                      A student answered the original math question incorrectly.
-                                      A diagnostic plan has already been created.
-                            
-                                      Your job:
-                                      Generate ONE diagnostic MCQ for the current diagnostic step.
-                            
-                                      MAIN GOAL:
-                                      Find the exact mathematical gap by asking a smaller, easier math question.
-                            
-                                      VERY IMPORTANT:
-                                      Generate an actual math problem.
-                                      Do NOT generate theory-only or definition-only questions.
-                            
-                                      The student should solve, compare, convert, calculate, identify a value, or choose the correct next step.
-                            
-                                      DO NOT ask questions like:
-                                      - What is a numerator?
-                                      - What is a denominator?
-                                      - What is an improper fraction?
-                                      - What does mixed fraction mean?
-                            
-                                      GOOD question types:
-                                      - Convert 7/4 into a mixed fraction.
-                                      - Which fraction is greater than 1?
-                                      - Which fraction is equivalent to 1/2?
-                                      - What is the LCM of 4 and 6?
-                                      - Add 2/5 + 1/5.
-                                      - What should be the next step to solve this fraction problem?
-                            
-                                      RULES:
-                                      1. Test ONLY the current diagnostic step.
-                                      2. Make it easier than the original question.
-                                      3. Stay connected to the original question topic.
-                                      4. Do NOT repeat the original question.
-                                      5. Do NOT reuse the exact same numbers from the original question.
-                                      6. Do NOT repeat any previous scaffold question.
-                                      7. Options must be short math values, fractions, numbers, expressions, or short steps.
-                                      8. Do NOT make all options wrong.
-                                      9. Exactly ONE option must be correct.
-                                      10. The other three options must be plausible but clearly incorrect.
-                                      11. correctAnswer must match the correct option letter.
-                                      12. correctValue must match the correct option text exactly.
-                                      13. Before returning, silently solve the question and verify the answer.
-                                      14. Return ONLY valid JSON.
-                                      15. Do not include markdown.
-                                      16. Do not explain outside JSON.
-                            
-                                      If diagnostic focus is concept:
-                                      Ask a math-based concept check, not a definition.
-                                      Example:
-                                      "Which fraction is greater than 1?"
-                                      Options: "3/2", "1/3", "2/5", "4/7"
-                            
-                                      If diagnostic focus is procedure:
-                                      Ask for the correct next step.
-                            
-                                      If diagnostic focus is calculation:
-                                      Ask for a smaller calculation.
-                            
-                                      If diagnostic focus is application:
-                                      Ask a simpler version of the original problem.
-                            
-                                      Return exactly this JSON:
-                            
-                                      {
-                                        "questionText": "...",
-                                        "optionA": "...",
-                                        "optionB": "...",
-                                        "optionC": "...",
-                                        "optionD": "...",
-                                        "correctAnswer": "A",
-                                        "correctValue": "...",
-                                        "explanation": "...",
-                                        "diagnosedMisconception": "...",
-                                        "diagnosticFocus": "...",
-                                        "suspectedWeakness": "...",
-                                        "confidence": "medium",
-                                        "diagnosticStep": 1,
-                                        "prerequisiteTested": "...",
-                                        "failureMeaning": "..."
-                                      }
-                            
-                                      Original Question:
-                                      %s
-                            
-                                      Topic:
-                                      %s
-                            
-                                      Skill Tag:
-                                      %s
-                            
-                                      Difficulty:
-                                      %d
-                            
-                                      Diagnostic Plan:
-                                      %s
-                            
-                                      Current Diagnostic Step:
-                                      %d
-                            
-                                      Previous Diagnostic Question:
-                                      %s
+                            You are an expert mathematics teacher and diagnostic assessment specialist for children.
+                    
+                                            A student answered the original mathematics question incorrectly.
+                    
+                                            Your task is to generate ONE diagnostic multiple-choice question that identifies the student's learning gap.
+                    
+                                            The diagnostic question should help determine WHY the student answered incorrectly, not simply whether they can answer another similar question.
+                    
+                                            =========================
+                                            IMPORTANT OBJECTIVE
+                                            =========================
+                    
+                                            The question MUST assess ONLY ONE prerequisite mathematical skill.
+                    
+                                            The question should require fewer reasoning steps than the original question while remaining mathematically meaningful.
+                    
+                                            The question should look like one from a real Grade 5–8 mathematics workbook.
+                    
+                                            =========================
+                                            STRICT RULES
+                                            =========================
+                    
+                                            1. Generate exactly ONE multiple-choice question.
+                                            2. Test ONLY the current diagnostic step.
+                                            3. Keep the same topic as the original question.
+                                            4. Make the question easier than the original.
+                                            5. Reduce cognitive load by testing one prerequisite skill.
+                                            6. Never repeat the original question.
+                                            7. Never reuse the same numbers from the original question.
+                                            8. Never repeat any previous scaffold question.
+                                            9. The student must solve a mathematical problem.
+                                            10. Exactly one option must be correct.
+                                            11. The remaining three options must represent realistic student misconceptions.
+                                            12. Before returning the JSON, silently solve the problem yourself and verify the correct answer.
+                                            13. Return ONLY valid JSON.
+                                            14. Do NOT include markdown.
+                                            15. Do NOT explain anything outside JSON.
+                    
+                                            =========================
+                                            DO NOT GENERATE
+                                            =========================
+                    
+                                            Do NOT ask:
+                    
+                                            - What is a numerator?
+                                            - What is a denominator?
+                                            - Define equivalent fractions.
+                                            - Explain mixed fractions.
+                                            - Describe the concept.
+                                            - Identify the definition.
+                                            - Fill in theoretical statements.
+                    
+                                            Never generate vocabulary or definition questions.
+                    
+                                            =========================
+                                            GOOD QUESTION TYPES
+                                            =========================
+                    
+                                            Fractions
+                                            - Add two fractions with the same denominator.
+                                            - Convert an improper fraction into a mixed fraction.
+                                            - Compare two fractions.
+                                            - Identify an equivalent fraction.
+                                            - Order fractions.
+                                            - Simplify a fraction.
+                    
+                                            Decimals
+                                            - Convert decimal to fraction.
+                                            - Round a decimal.
+                                            - Compare decimals.
+                                            - Add or subtract decimals.
+                    
+                                            Integers
+                                            - Add or subtract integers.
+                                            - Compare positive and negative numbers.
+                    
+                                            Geometry
+                                            - Find perimeter.
+                                            - Find area.
+                                            - Identify missing side length.
+                    
+                                            Measurement
+                                            - Unit conversions.
+                                            - Time calculations.
+                    
+                                            The student should always CALCULATE, CONVERT, COMPARE, SIMPLIFY, ESTIMATE, or APPLY a mathematical operation.
+                    
+                                            =========================
+                                            DIAGNOSTIC STEP GUIDELINES
+                                            =========================
+                    
+                                            If the diagnostic step tests CONCEPT:
+                                            Generate a very simple mathematical question that checks conceptual understanding through solving, not definitions.
+                    
+                                            Example:
+                                            Which fraction is greater?
+                    
+                                            If the diagnostic step tests PROCEDURE:
+                                            Ask for the correct mathematical step.
+                    
+                                            If the diagnostic step tests CALCULATION:
+                                            Generate a smaller numerical calculation.
+                    
+                                            If the diagnostic step tests APPLICATION:
+                                            Generate a simpler real-world or word problem based on the same concept.
+                    
+                                            =========================
+                                            RETURN EXACTLY THIS JSON
+                                            =========================
+                    
+                                            {
+                                              "questionText": "",
+                                              "optionA": "",
+                                              "optionB": "",
+                                              "optionC": "",
+                                              "optionD": "",
+                                              "correctAnswer": "A",
+                                              "correctValue": "",
+                                              "explanation": "",
+                                              "diagnosedMisconception": "",
+                                              "diagnosticFocus": "",
+                                              "suspectedWeakness": "",
+                                              "confidence": "HIGH",
+                                              "diagnosticStep": 1,
+                                              "prerequisiteTested": "",
+                                              "failureMeaning": ""
+                                            }
+                    
+                                            =========================
+                                            ORIGINAL QUESTION
+                                            =========================
+                    
+                                            %s
+                    
+                                            Student's Incorrect Answer:
+                    
+                                            %s
+                    
+                                            Topic:
+                    
+                                            %s
+                    
+                                            Skill Tag:
+                    
+                                            %s
+                    
+                                            Difficulty:
+                    
+                                            %d
+                    
+                                            Diagnostic Plan:
+                    
+                                            %s
+                    
+                                            Current Diagnostic Step:
+                    
+                                            %d
+                    
+                                            Previous Diagnostic Question:
+                    
+                                            %s
                 """.formatted(
                     questionText,
                     topic,
