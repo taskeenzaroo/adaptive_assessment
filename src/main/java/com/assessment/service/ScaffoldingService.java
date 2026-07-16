@@ -209,39 +209,33 @@ public class ScaffoldingService {
                                               "failureMeaning": ""
                                             }
                     
-                                            =========================
                                             ORIGINAL QUESTION
-                                            =========================
                     
-                                            %s
+                                                  %s
                     
-                                            Student's Incorrect Answer:
+                                                  Topic:
                     
-                                            %s
+                                                  %s
                     
-                                            Topic:
+                                                  Skill Tag:
                     
-                                            %s
+                                                  %s
                     
-                                            Skill Tag:
+                                                  Difficulty:
                     
-                                            %s
+                                                  %d
                     
-                                            Difficulty:
+                                                  Diagnostic Plan:
                     
-                                            %d
+                                                  %s
                     
-                                            Diagnostic Plan:
+                                                  Current Diagnostic Step:
                     
-                                            %s
+                                                  %d
                     
-                                            Current Diagnostic Step:
+                                                  Previous Diagnostic Question:
                     
-                                            %d
-                    
-                                            Previous Diagnostic Question:
-                    
-                                            %s
+                                                  %s
                 """.formatted(
                     questionText,
                     topic,
