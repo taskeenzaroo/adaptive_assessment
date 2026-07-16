@@ -12,14 +12,15 @@ import java.util.*;
 @Service
 public class ScaffoldingService {
 
-    @Value("${groq.api.key}")
+    @Value("${openai.api.key}")
     private String apiKey;
 
-    //    @Value("${groq.api.url}")
-//    private String apiUrl;
-    private String apiUrl = "https://api.groq.com/openai/v1/chat/completions";
 
-    @Value("${groq.model}")
+    @Value("${openai.api.url}")
+    private String apiUrl;
+
+
+    @Value("${openai.model}")
     private String model;
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -77,7 +78,7 @@ public class ScaffoldingService {
                     %d
                     """.formatted(questionText, topic, skillTag, difficulty);
 
-            String content = callGroq(prompt);
+            String content = callOpenAI(prompt);
             return cleanJson(content);
 
         } catch (Exception e) {
@@ -163,25 +164,7 @@ public class ScaffoldingService {
                                             - Identify an equivalent fraction.
                                             - Order fractions.
                                             - Simplify a fraction.
-                    
-                                            Decimals
-                                            - Convert decimal to fraction.
-                                            - Round a decimal.
-                                            - Compare decimals.
-                                            - Add or subtract decimals.
-                    
-                                            Integers
-                                            - Add or subtract integers.
-                                            - Compare positive and negative numbers.
-                    
-                                            Geometry
-                                            - Find perimeter.
-                                            - Find area.
-                                            - Identify missing side length.
-                    
-                                            Measurement
-                                            - Unit conversions.
-                                            - Time calculations.
+                                       
                     
                                             The student should always CALCULATE, CONVERT, COMPARE, SIMPLIFY, ESTIMATE, or APPLY a mathematical operation.
                     
@@ -269,7 +252,7 @@ public class ScaffoldingService {
                     previousDiagnosticQuestion
             );
 
-            String content = callGroq(prompt);
+            String content = callOpenAI(prompt);
             content = cleanJson(content);
 
             JsonNode json = objectMapper.readTree(content);
@@ -301,7 +284,7 @@ public class ScaffoldingService {
         }
     }
 
-    private String callGroq(String prompt) throws Exception {
+    private String callOpenAI(String prompt) throws Exception {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(apiKey);
@@ -318,7 +301,7 @@ public class ScaffoldingService {
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
-        System.out.println("ACTUAL GROQ URL = [" + apiUrl + "]");
+        System.out.println("ACTUAL OpenAI URL = [" + apiUrl + "]");
         ResponseEntity<String> response = restTemplate.exchange(
                 apiUrl,
                 HttpMethod.POST,
