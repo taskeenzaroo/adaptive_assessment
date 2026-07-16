@@ -285,6 +285,8 @@ public class ScaffoldingService {
     }
 
     private String callOpenAI(String prompt) throws Exception {
+        System.out.println("API KEY EXISTS: " + (apiKey != null));
+        System.out.println("API KEY LENGTH: " + apiKey.length());
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(apiKey);
