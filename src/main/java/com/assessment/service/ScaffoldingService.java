@@ -46,77 +46,144 @@ public class ScaffoldingService {
             String prompt = """
                     You are an expert mathematics teacher, educational psychologist, and diagnostic assessment specialist.
                     
-                    A student answered a mathematics multiple-choice question incorrectly.
+                    A student has answered a mathematics multiple-choice question incorrectly.
                     
-                    Your responsibility is to diagnose WHY the student selected the wrong option.
+                    Your task is to form a DIAGNOSTIC HYPOTHESIS about why the student may have selected that particular wrong option and to create a two-stage diagnostic plan for testing that hypothesis.
                     
-                    Do NOT generate a diagnostic question yet.
+                    IMPORTANT:
+                    The student's selected option provides evidence about their thinking, but it does not prove a misconception.
+                    Do not present an inferred misconception as certain unless the response strongly supports it.
                     
-                    ---------------------------------------------------
-                    STEP 1 — Analyze the student's thinking
-                    ---------------------------------------------------
+                    Do NOT generate diagnostic questions yet.
                     
-                    Carefully examine:
+                    ==================================================
+                    STEP 1 — ANALYZE THE STUDENT'S RESPONSE
+                    ==================================================
                     
-                    • Original question
-                    • Every option
-                    • Correct answer
-                    • Student's chosen answer
+                    Carefully analyze:
                     
-                    Infer the mathematical reasoning that most likely caused the student to choose that option.
+                    • The original question
+                    • All answer options
+                    • The correct option
+                    • The mathematical value represented by the correct option
+                    • The student's selected option
+                    • The mathematical value represented by the student's selected option
+                    • The topic
+                    • The skill being assessed
+                    • The question difficulty
                     
-                    Do NOT simply say the answer is wrong.
+                    First, solve the original problem independently and verify the supplied correct answer.
                     
-                    Instead determine the misconception behind the student's thinking.
+                    Then compare the student's selected answer with the correct solution.
                     
-                    For example:
+                    Determine what mathematical process, misconception, procedural error, or prerequisite gap could reasonably produce the student's selected answer.
+                    
+                    Focus specifically on WHY the student may have selected THIS wrong option rather than another option.
+                    
+                    Possible causes may include, but are not limited to:
                     
                     • adding numerators and denominators directly
-                    • confusing numerator with denominator
-                    • incorrect order of operations
-                    • misunderstanding place value
-                    • incorrect borrowing in subtraction
+                    • confusing numerator and denominator
                     • misunderstanding equivalent fractions
-                    • multiplying instead of adding
-                    • incorrect unit conversion
+                    • applying the wrong mathematical operation
+                    • incorrect order of operations
+                    • place-value misunderstanding
+                    • borrowing or carrying errors
+                    • multiplication/division confusion
+                    • unit-conversion errors
+                    • calculation mistakes
+                    • missing prerequisite knowledge
                     
-                    If several misconceptions are possible,
-                    choose the MOST LIKELY one.
+                    Do NOT use vague diagnoses such as:
                     
-                    ---------------------------------------------------
-                    STEP 2 — Build the diagnostic path
-                    ---------------------------------------------------
+                    • "The student does not understand the concept"
+                    • "The student is confused"
+                    • "The student needs more practice"
+                    • "The student answered incorrectly"
                     
-                    Generate ONLY TWO diagnostic stages.
+                    Identify the specific mathematical reasoning or prerequisite that should be tested.
                     
-                    Stage 1
+                    If the selected answer strongly corresponds to a known error pattern, identify that pattern.
                     
-                    Test the immediate prerequisite skill responsible for the misconception.
+                    If multiple explanations are plausible, select the most plausible hypothesis based on the numerical or conceptual relationship between the student's answer and the correct answer.
                     
-                    Stage 2
+                    If there is insufficient evidence to infer a specific misconception, explicitly state that the misconception is uncertain and lower the confidence level.
                     
-                    If the student fails Stage 1,
-                    test the deeper mathematical foundation.
+                    ==================================================
+                    STEP 2 — BUILD A TWO-STAGE DIAGNOSTIC PATH
+                    ==================================================
                     
-                    Each stage should isolate a different level of understanding.
+                    Create exactly TWO diagnostic stages.
                     
-                    Do NOT repeat the original question.
+                    The purpose of these stages is to TEST the hypothesis from Step 1.
                     
-                    Do NOT ask definitions.
+                    ------------------------------
+                    STAGE 1 — Immediate Prerequisite
+                    ------------------------------
                     
-                    ---------------------------------------------------
-                    RULES
-                    ---------------------------------------------------
+                    Identify the most immediate prerequisite skill or reasoning step required to solve the original question correctly.
                     
-                    • Return ONLY JSON.
-                    • No markdown.
-                    • No explanations.
-                    • Two stages only.
-                    • Be specific.
-                    • Keep prerequisite descriptions short.
-                    • Keep failureMeaning educational.
+                    The diagnostic purpose should test whether the student's suspected misconception actually exists.
                     
-                    ---------------------------------------------------
+                    Do not simply make the original question easier.
+                    
+                    Do not repeat the original question.
+                    
+                    ------------------------------
+                    STAGE 2 — Deeper Foundation
+                    ------------------------------
+                    
+                    This stage is used only if the student fails Stage 1.
+                    
+                    Identify a deeper foundational skill that Stage 1 depends upon.
+                    
+                    Stage 2 must test a different and more fundamental level of understanding than Stage 1.
+                    
+                    Do not repeat Stage 1.
+                    
+                    ==================================================
+                    DIAGNOSTIC PRINCIPLES
+                    ==================================================
+                    
+                    • Treat the misconception as a hypothesis to be tested, not a confirmed diagnosis.
+                    • Base the hypothesis on the student's specific selected answer.
+                    • Prefer mathematical evidence over generic assumptions.
+                    • Each diagnostic stage must test ONE clearly defined prerequisite.
+                    • Stage 2 must be more foundational than Stage 1.
+                    • Do not generate diagnostic questions yet.
+                    • Do not provide teaching, hints, remediation, or explanations to the student.
+                    • Do not ask for mathematical definitions.
+                    • Do not repeat the original problem.
+                    • Do not introduce concepts unrelated to the original skill.
+                    • Keep the diagnostic path appropriate for the topic and difficulty level.
+                    
+                    ==================================================
+                    CONFIDENCE
+                    ==================================================
+                    
+                    Set confidence according to the available evidence:
+                    
+                    HIGH:
+                    The selected wrong option strongly corresponds to a recognizable mathematical misconception or error pattern.
+                    
+                    MEDIUM:
+                    The selected option reasonably suggests a misconception, but multiple explanations remain possible.
+                    
+                    LOW:
+                    The student's selected answer does not provide enough evidence to reliably infer a specific misconception.
+                    
+                    ==================================================
+                    OUTPUT RULES
+                    ==================================================
+                    
+                    Return ONLY valid JSON.
+                    
+                    Do not use markdown.
+                    Do not use code fences.
+                    Do not include text before or after the JSON.
+                    Do not include comments inside the JSON.
+                    Use exactly TWO diagnostic stages.
+                  
                     Return exactly:
                     
                     {
@@ -242,114 +309,250 @@ public class ScaffoldingService {
         try {
 
             String prompt = """
-                You are an expert mathematics teacher and diagnostic assessment specialist.
-
-                A student's misconception has already been analyzed.
-
-                Your task is to generate ONE diagnostic multiple-choice question.
-
-                Your goal is NOT to teach.
-
-                Your goal is to VERIFY whether the diagnosed misconception actually exists.
-
-                ==================================================
-
-                Original Question
-
-                %s
-
-                Option A
-
-                %s
-
-                Option B
-
-                %s
-
-                Option C
-
-                %s
-
-                Option D
-
-                %s
-
-                Correct Answer
-
-                %s
-
-                Correct Value
-
-                %s
-
-                Student Selected Answer
-
-                %s
-
-                Student Selected Value
-
-                %s
-
-                Topic
-
-                %s
-
-                Skill Tag
-
-                %s
-
-                Difficulty
-
-                %d
-
-                ==================================================
-
-                Diagnostic Analysis
-
-                %s
-
-                Current Diagnostic Step
-
-                %d
-
-                Previous Diagnostic Question
-
-                %s
-
-                ==================================================
-
-                Generate ONE easier diagnostic multiple-choice question.
-
-                Rules:
-
-                • Test ONLY the prerequisite of the current diagnostic step.
-                • Do NOT repeat the original wording.
-                • Do NOT reuse the same numbers.
-                • Do NOT ask definitions.
-                • Generate exactly FOUR options.
-                • Exactly ONE option must be correct.
-                • The incorrect options should represent realistic misconceptions.
-                • Solve the question yourself before returning it.
-
-                Return ONLY JSON.
-
-                {
-                  "questionText":"",
-                  "optionA":"",
-                  "optionB":"",
-                  "optionC":"",
-                  "optionD":"",
-                  "correctAnswer":"A",
-                  "correctValue":"",
-                  "explanation":"",
-                  "diagnosedMisconception":"",
-                  "diagnosticFocus":"",
-                  "suspectedWeakness":"",
-                  "confidence":"high",
-                  "diagnosticStep":1,
-                  "prerequisiteTested":"",
-                  "failureMeaning":""
-                }
+                    You are an expert mathematics teacher and diagnostic assessment specialist.
+                    
+                     A student has answered a mathematics question incorrectly, and a diagnostic hypothesis has already been generated.
+                    
+                     Your task is to generate exactly ONE diagnostic multiple-choice question that tests whether the suspected prerequisite gap or misconception actually exists.
+                    
+                     Your goal is DIAGNOSIS, not teaching.
+                    
+                     Do NOT explain the original problem to the student.
+                     Do NOT provide hints.
+                     Do NOT simply generate an easier version of the original question.
+                    
+                     ==================================================
+                     ORIGINAL ASSESSMENT CONTEXT
+                     ==================================================
+                    
+                     Original Question:
+                     %s
+                    
+                     Option A:
+                     %s
+                    
+                     Option B:
+                     %s
+                    
+                     Option C:
+                     %s
+                    
+                     Option D:
+                     %s
+                    
+                     Correct Answer:
+                     %s
+                    
+                     Correct Value:
+                     %s
+                    
+                     Student Selected Answer:
+                     %s
+                    
+                     Student Selected Value:
+                     %s
+                    
+                     Topic:
+                     %s
+                    
+                     Skill Tag:
+                     %s
+                    
+                     Original Difficulty:
+                     %d
+                    
+                     ==================================================
+                     DIAGNOSTIC ANALYSIS
+                     ==================================================
+                    
+                     %s
+                    
+                     ==================================================
+                     CURRENT DIAGNOSTIC STATE
+                     ==================================================
+                    
+                     Current Diagnostic Step:
+                     %d
+                    
+                     Previous Diagnostic Question:
+                     %s
+                    
+                     ==================================================
+                     YOUR TASK
+                     ==================================================
+                    
+                     Generate ONE multiple-choice diagnostic question.
+                    
+                     The question must test ONLY the prerequisite identified for the CURRENT diagnostic step in the diagnostic analysis.
+                    
+                     The purpose of the question is to gather evidence about the suspected misconception.
+                    
+                     Do not assume the misconception is confirmed.
+                    
+                     ==================================================
+                     DIAGNOSTIC STEP RULES
+                     ==================================================
+                    
+                     IF CURRENT DIAGNOSTIC STEP = 1:
+                    
+                     Test the IMMEDIATE prerequisite identified in Stage 1 of the diagnostic analysis.
+                    
+                     The question should determine whether the student understands the specific mathematical reasoning required immediately before solving the original problem.
+                    
+                     Do NOT test a deeper foundational concept yet.
+                    
+                    
+                     IF CURRENT DIAGNOSTIC STEP = 2:
+                    
+                     The student has already failed Stage 1.
+                    
+                     Test the DEEPER foundational prerequisite identified in Stage 2 of the diagnostic analysis.
+                    
+                     The question must test a more fundamental mathematical concept than Stage 1.
+                    
+                     Do NOT repeat Stage 1.
+                    
+                     Do NOT generate a question that tests essentially the same reasoning using different numbers.
+                    
+                     Use the previous diagnostic question to ensure that Stage 2 investigates a genuinely deeper prerequisite.
+                    
+                     ==================================================
+                     QUESTION CONSTRUCTION RULES
+                     ==================================================
+                    
+                     • Generate exactly ONE question.
+                     • Generate exactly FOUR answer options: A, B, C and D.
+                     • Exactly ONE option must be mathematically correct.
+                     • Solve the question independently before assigning the correct answer.
+                     • Ensure that correctAnswer matches correctValue exactly.
+                     • Keep the mathematics appropriate for the student's current diagnostic level.
+                     • Test ONE prerequisite only.
+                     • Keep the wording clear and age-appropriate.
+                     • The question must be answerable using the information provided.
+                     • Avoid unnecessary reading complexity.
+                    
+                     ==================================================
+                     DISTRACTOR DESIGN
+                     ==================================================
+                    
+                     The three incorrect options must be plausible.
+                    
+                     Whenever possible, each incorrect option should correspond to a realistic mathematical error related to the prerequisite being tested.
+                    
+                     For example, distractors may represent:
+                    
+                     • the suspected misconception
+                     • a common procedural mistake
+                     • confusion between related concepts
+                     • an arithmetic error
+                     • incorrect application of the relevant operation
+                    
+                     Do NOT use obviously meaningless distractors.
+                    
+                     Do NOT make the correct answer obvious because it is significantly longer, more detailed, or structurally different from the other options.
+                    
+                     ==================================================
+                     DO NOT
+                     ==================================================
+                    
+                     • Do NOT repeat the original question.
+                     • Do NOT merely replace the numbers in the original question.
+                     • Do NOT reuse the same numbers from the original question where avoidable.
+                     • Do NOT repeat the previous diagnostic question.
+                     • Do NOT ask for definitions.
+                     • Do NOT ask "What should you do first?"
+                     • Do NOT ask generic questions about problem-solving strategy.
+                     • Do NOT teach the student how to solve the original problem.
+                     • Do NOT provide hints inside the question.
+                     • Do NOT test multiple mathematical skills simultaneously.
+                     • Do NOT introduce an unrelated topic.
+                     • Do NOT claim that the misconception has been proven.
+                     • Do NOT generate more than one question.
+                    
+                     ==================================================
+                     DIAGNOSTIC METADATA
+                     ==================================================
+                    
+                     After generating the question, provide metadata describing what the question tests.
+                    
+                     "diagnosedMisconception":
+                     Use the suspected misconception from the diagnostic analysis.
+                     Treat it as a hypothesis, not a confirmed diagnosis.
+                    
+                     "diagnosticFocus":
+                     State the specific mathematical concept being tested.
+                    
+                     "suspectedWeakness":
+                     State the learner weakness that this question is investigating.
+                    
+                     "confidence":
+                     Use the confidence level from the diagnostic analysis unless the generated diagnostic context provides a strong reason to lower it.
+                    
+                     "diagnosticStep":
+                     Must equal the Current Diagnostic Step supplied above.
+                    
+                     "prerequisiteTested":
+                     State exactly ONE prerequisite tested by this question.
+                    
+                     "failureMeaning":
+                     Explain what an incorrect response to THIS diagnostic question would suggest.
+                     Do not state that failure proves the misconception.
+                     Use language such as "may indicate", "suggests", or "provides evidence of".
+                    
+                     "explanation":
+                     Briefly explain why the correct answer is mathematically correct.
+                     This explanation is for system/report use and should not contain unnecessary teaching content.
+                    
+                     ==================================================
+                     FINAL VALIDATION
+                     ==================================================
+                    
+                     Before returning the response, silently verify:
+                    
+                     1. Is there exactly one question?
+                     2. Are there exactly four options?
+                     3. Is exactly one option correct?
+                     4. Did I solve the question correctly?
+                     5. Does correctAnswer correspond to correctValue?
+                     6. Does the question test only the prerequisite for the current diagnostic step?
+                     7. If this is Stage 2, is it genuinely more foundational than Stage 1?
+                     8. Is it substantially different from the original question?
+                     9. Is it substantially different from the previous diagnostic question?
+                     10. Are the distractors plausible mathematical errors?
+                     11. Is the question diagnostic rather than instructional?
+                    
+                     If any condition fails, correct the question before returning it.
+                    
+                     ==================================================
+                     OUTPUT FORMAT
+                     ==================================================
+                    
+                     Return ONLY valid JSON.
+                    
+                     Do not use markdown.
+                     Do not use code fences.
+                     Do not include text before or after the JSON.
+                     Do not include comments.
+                    
+                     Return exactly this structure:
+                    
+                     {
+                       "questionText": "",
+                       "optionA": "",
+                       "optionB": "",
+                       "optionC": "",
+                       "optionD": "",
+                       "correctAnswer": "A",
+                       "correctValue": "",
+                       "explanation": "",
+                       "diagnosedMisconception": "",
+                       "diagnosticFocus": "",
+                       "suspectedWeakness": "",
+                       "confidence": "high",
+                       "diagnosticStep": 1,
+                       "prerequisiteTested": "",
+                       "failureMeaning": ""
+                     }
                 """
                     .formatted(
                             questionText,
@@ -430,22 +633,41 @@ public class ScaffoldingService {
         systemMessage.put(
                 "content",
                 """
-                        You are an expert mathematics tutor and diagnostic assessment engine.
+                        You are an expert mathematics teacher, educational diagnostic specialist,
+                       and diagnostic assessment engine.
+                       Your role is to analyze mathematical responses and assist with
+                       evidence-based diagnostic assessment.
                         
-                        Always follow the user's instructions exactly.
+                       Follow the user's instructions exactly.
                         
-                        Always return valid JSON.
+                       Always return valid JSON.
                         
-                        Never wrap JSON inside markdown.
+                       Never wrap JSON inside markdown or code fences.
                         
-                        Never explain outside JSON.
+                       Never include text, explanations, comments, or apologies outside the JSON.
                         
-                        Never apologize.
+                       Ensure all mathematical content is correct before returning a response.
                         
-                        Never produce invalid JSON.
+                       Do not invent student misconceptions when the available evidence
+                       does not support them.
                         
-                        If information is missing, make the best educational assumption.
-                        """
+                       Treat inferred misconceptions as diagnostic hypotheses rather than
+                       confirmed facts.
+                        
+                       If the evidence is insufficient to identify a specific misconception,
+                       explicitly represent the uncertainty and use an appropriate low
+                       confidence level.
+                        
+                       When generating diagnostic questions, test only the prerequisite
+                       specified in the diagnostic plan.
+                        
+                       Diagnostic questions must gather evidence about the learner's
+                       understanding rather than teach, hint at, or reveal the solution.
+                        
+                       Never assume that an incorrect response alone proves a misconception.
+                        
+                       Always produce output that conforms exactly to the JSON structure requested by the user message.
+        """
         );
 
         Map<String, Object> userMessage = new HashMap<>();
